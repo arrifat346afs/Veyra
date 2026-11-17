@@ -6787,6 +6787,8 @@ version = "0.1.0"
 dependencies = [
  "gpui-kit",
  "gpui-kit-assets",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -1,0 +1,1 @@
+pub const DESCRIPTION: &str = "Drive mounting, automatic mounting, removable media, and network shares are not implemented yet. Device preferences will become available when these features are connected.";
