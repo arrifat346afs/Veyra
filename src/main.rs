@@ -7,3 +7,7 @@ mod services;
 fn main() {
     app::run();
 }
+
+mod selection;
+
+mod thumbnails;

@@ -14,6 +14,8 @@ use crate::layouts::{content, sidebar, topbar};
 use gpui_kit::component::input::{InputState, InputEvent};
 
 pub struct MainWindow {
+    pub(crate) selection: crate::selection::Selection,
+    pub(crate) settings_sliders: Vec<Entity<gpui_kit::component::slider::SliderState>>,
     pub(crate) preferences: crate::settings::preferences::Preferences,
     pub(crate) settings_open: bool,
     pub(crate) settings_page: usize,
@@ -37,7 +39,7 @@ pub struct MainWindow {
 
 impl MainWindow {
     pub fn open(cx: &mut App) {
-        gpui_kit::open_window(WindowOptions::default(), cx, |window, cx| {
+        cx.open_window(WindowOptions { window_background: WindowBackgroundAppearance::Transparent, ..WindowOptions::default() }, |window, cx| {
             window.set_window_title("Veyra");
             let (preferences, settings_error) = match crate::settings::preferences::Preferences::load() {
                 Ok(p)=>(p,None), Err(e)=>(Default::default(),Some(e))
@@ -46,16 +48,19 @@ impl MainWindow {
             let current_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
             let current_dir = if preferences.home_start { std::env::var_os("HOME").map(PathBuf::from).unwrap_or(current_dir) } else { current_dir };
             let (entries, error) = read_directory(&current_dir);
-            cx.new(|cx| {
+            let view = cx.new(|cx| {
                 let focus = cx.focus_handle();
                 focus.focus(window, cx);
                 let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search in Files"));
                 cx.subscribe(&search, |_, _, _: &InputEvent, cx| cx.notify()).detach();
                 let settings_search = cx.new(|cx| InputState::new(window,cx).placeholder("Search settings"));
                 cx.subscribe(&settings_search, |_,_,_: &InputEvent,cx| cx.notify()).detach();
-                Self { settings_open:false,settings_page:0,settings_search,settings_error,
+                let settings_sliders = crate::settings::sliders::create(&preferences,cx);
+                Self { selection: Default::default(), settings_sliders, settings_open:false,settings_page:0,settings_search,settings_error,
                     focus, current_dir, entries, error, search, back_history: vec![], forward_history: vec![], list_view: preferences.list_view, reverse_sort: preferences.reverse_sort, show_sidebar: preferences.show_sidebar, show_hidden: preferences.show_hidden, preferences }
-            })
+            });
+            // Override the component root’s opaque background so pane alpha reaches the compositor.
+            cx.new(|cx| gpui_kit::base::Root::new(view,window,cx).bg(rgba(0x00000000)))
         }).expect("Failed to open main window");
     }
 
@@ -91,6 +96,7 @@ impl MainWindow {
     }
     fn load_directory(&mut self, path: PathBuf, cx: &mut Context<Self>) {
         let (entries, error) = read_directory(&path);
+        self.selection = Default::default();
         self.current_dir = path;
         self.entries = entries;
         self.error = error;
@@ -132,16 +138,19 @@ impl Render for MainWindow {
             if self.preferences.folders_first {b.is_dir().cmp(&a.is_dir()).then(order)} else {order}
         });
         let toolbar = topbar::topbar(self, visible.len(), cx);
+        self.selection.geometry.borrow_mut().items.clear();
+        self.selection.selected.retain(|path| visible.contains(path));
         let main_content = content::content(
             &self.current_dir,
             &visible,
             self.error.as_deref(),
             self.list_view,
             &self.preferences,
+            &self.selection,
             cx,
         );
         let mut body = div().flex().flex_1().min_h(px(0.));
-        if self.show_sidebar { body = body.child(sidebar::sidebar(&self.current_dir, cx)); }
+        if self.show_sidebar { body = body.child(sidebar::sidebar(&self.current_dir, self.preferences.sidebar_opacity, cx)); }
         let mut root = div().relative().size_full().flex().flex_col().text_color(palette.foreground).child(toolbar).child(body.child(main_content));
         if self.settings_open { root = root.child(crate::settings::popup(self, cx)); }
         crate::keyboard_shortcuts::attach(root, &self.focus, cx)

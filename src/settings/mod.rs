@@ -8,3 +8,8 @@ mod about;
 mod panel;
 mod popup;
 pub use popup::popup;
+
+pub mod sliders;
+
+mod toggle;
+mod choice;

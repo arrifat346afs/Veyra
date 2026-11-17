@@ -19,7 +19,7 @@ use crate::{services::bookmarks, windows::MainWindow};
 /// Built-in places are derived from the user's home directory. Bookmarks come
 /// from the file manager's own persistent store, not another manager's live
 /// state. Clicking a location asks `MainWindow` to navigate to that path.
-pub fn sidebar(current_dir: &Path, cx: &mut Context<MainWindow>) -> impl IntoElement {
+pub fn sidebar(current_dir: &Path, opacity: usize, cx: &mut Context<MainWindow>) -> impl IntoElement {
     let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/"));
     let saved_bookmarks = bookmarks::get_bookmarks();
     // Copy the semantic palette before attaching listeners, so the complete
@@ -27,7 +27,7 @@ pub fn sidebar(current_dir: &Path, cx: &mut Context<MainWindow>) -> impl IntoEle
     let palette = cx.theme().clone();
 
     div().w(px(238.0)).h_full().flex().flex_col().gap(px(3.0))
-        .px(px(12.0)).py(px(16.0)).bg(palette.muted)
+        .px(px(12.0)).py(px(16.0)).bg(palette.muted.opacity(opacity.min(100) as f32 / 100.))
         .child(div().px(px(12.0)).pb(px(12.0)).text_color(palette.foreground).child("Places"))
         .child(location_row("Home", IconName::House, home.clone(), current_dir, cx))
         .child(location_row("Desktop", IconName::PanelsTopLeft, home.join("Desktop"), current_dir, cx))

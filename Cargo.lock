@@ -5768,6 +5768,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "shell-words"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc6fe69c597f9c37bfeeeeeb33da3530379845f10be461a66d16d03eca2ded77"
+
+[[package]]
 name = "shellexpand"
 version = "3.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6785,10 +6791,15 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 name = "veyra"
 version = "0.1.0"
 dependencies = [
+ "async-lock",
  "gpui-kit",
  "gpui-kit-assets",
+ "image",
+ "mime_guess",
  "serde",
  "serde_json",
+ "shell-words",
+ "url",
 ]
 
 [[package]]

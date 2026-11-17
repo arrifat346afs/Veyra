@@ -1,4 +1,5 @@
 use gpui_kit::*;
+use gpui_kit::prelude::*;
 use gpui_kit::component::ActiveTheme as _;
 use crate::windows::MainWindow;
 pub fn breadcrumbs(state: &MainWindow, count: usize, cx: &mut Context<MainWindow>) -> AnyElement {
@@ -9,7 +10,7 @@ pub fn breadcrumbs(state: &MainWindow, count: usize, cx: &mut Context<MainWindow
         let target = path.clone();
         let active = target == state.current_dir;
         crumbs.push(div().id(format!("crumb-{index}")).px(px(8.)).py(px(4.)).rounded(px(4.))
-            .bg(if active {cx.theme().muted} else {cx.theme().background})
+            .when(active, |crumb| crumb.bg(cx.theme().muted.opacity(state.preferences.foreground_alpha())))
             .cursor_pointer().child(part.as_os_str().to_string_lossy().into_owned())
             .on_click(cx.listener(move |s, _, _, cx| s.navigate_to(target.clone(), cx))));
     }

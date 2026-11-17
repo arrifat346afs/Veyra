@@ -21,6 +21,7 @@ pub fn content(
     error: Option<&str>,
     list_view: bool,
     preferences: &crate::settings::preferences::Preferences,
+    selection: &crate::selection::Selection,
     cx: &mut Context<MainWindow>,
 ) -> AnyElement {
     let icon_size = preferences.icon_size.clamp(48,192) as f32;
@@ -32,20 +33,21 @@ pub fn content(
         let is_dir = entry.is_dir();
         let name = entry.file_name().and_then(|name| name.to_str()).unwrap_or("(unnamed)").to_owned();
         let icon = papirus_icon(entry, is_dir);
-        div().id(format!("entry-{}", entry.display())).w(px(icon_size+52.)).h(px(icon_size+76.))
+        let tile = div().id(format!("entry-{}", entry.display())).w(px(icon_size+52.)).h(px(icon_size+76.))
             .flex().flex_col().items_center().justify_start().gap(px(8.0)).p(px(10.0))
             .rounded(px(8.0)).text_color(palette.foreground).cursor_pointer()
-            .hover(|style| style.bg(palette.list_hover))
             .when(list_view, |tile| tile.w_full().h(px(40.+spacing)).flex_row())
             // Load as an image so GPUI preserves Papirus' multicolor SVG fills.
-            .child(img(PathBuf::from(icon)).size(px(if list_view { 32.0 } else { icon_size })))
+            .child(crate::thumbnails::preview(entry, PathBuf::from(icon), !is_dir && preferences.show_thumbnails, if list_view {32.} else {icon_size}))
             .child(div().w_full().text_center().text_ellipsis().text_size(px(preferences.filename_size.clamp(10,24) as f32)).child(name))
             .when(!is_dir && preferences.show_sizes, |tile| tile.child(div().text_color(palette.muted_foreground).text_size(px(11.0))
                 .child(format_file_size(entry))))
-            .when(is_dir, |tile| tile.on_click(cx.listener(move |this, event: &ClickEvent, _, cx| { if single_click || event.click_count() == 2 {this.navigate_to(path.clone(), cx)} })))
+            .when(is_dir, |tile| tile.on_click(cx.listener(move |this, event: &ClickEvent, _, cx| { if !(event.modifiers().control || event.modifiers().shift) && (single_click || event.click_count() == 2) {this.navigate_to(path.clone(), cx)} })))
+        ;
+        crate::selection::item(tile, entry.clone(), selection, cx)
     }).collect();
 
-    div().flex_1().h_full().flex().flex_col().bg(palette.background)
+    let body = div().flex_1().h_full().flex().flex_col().bg(palette.background.opacity(preferences.window_opacity.min(100) as f32 / 100.))
         .child(if let Some(error) = error {
             div().px(px(20.0)).py(px(16.0)).text_color(palette.danger_foreground).child(error.to_owned()).into_any_element()
         } else if entries.is_empty() {
@@ -53,8 +55,9 @@ pub fn content(
         } else {
             div().flex_1().w_full().overflow_y_scrollbar().child(
                 div().w_full().flex().flex_wrap().content_start().gap(px(spacing)).p(px(18.0)).children(entry_tiles)
-            ).into_any_element()
-        }).into_any_element()
+            ).h_full().into_any_element()
+        }).into_any_element();
+    crate::selection::area(body,selection,cx)
 }
 
 /// Resolve an icon from the active Papirus theme, including user-installed overrides.

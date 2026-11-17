@@ -1,5 +1,6 @@
-use super::{controls::{Setting,yes},preferences::Preferences};
+use super::{controls::{Setting,Control},preferences::Preferences};
 pub fn items(p: &Preferences) -> Vec<Setting> { vec![
-Setting {title:"Single-click folders",description:"Turn off to open folders with a double click.",value:yes(p.single_click),change:|p| p.single_click=!p.single_click},
-Setting {title:"Case-sensitive search",description:"Match upper and lower case exactly when filtering the current folder.",value:yes(p.case_sensitive),change:|p| p.case_sensitive=!p.case_sensitive},
+Setting {title:"Thumbnails",description:"Preview images, GIFs, videos and documents supported by installed desktop thumbnailers.",control:Control::Toggle {checked:p.show_thumbnails,set:|p,value| p.show_thumbnails=value}},
+Setting {title:"Single-click folders",description:"Turn off to open folders with a double click.",control:Control::Toggle {checked:p.single_click, set:|p,value| p.single_click=value}},
+Setting {title:"Case-sensitive search",description:"Match upper and lower case exactly when filtering the current folder.",control:Control::Toggle {checked:p.case_sensitive, set:|p,value| p.case_sensitive=value}},
 ] }

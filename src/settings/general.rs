@@ -1,10 +1,10 @@
-use super::{controls::{Setting,yes},preferences::Preferences};
+use super::{controls::{Setting,Control},preferences::Preferences};
 pub fn items(p: &Preferences) -> Vec<Setting> { vec![
-Setting {title:"Default view",description:"Choose grid or list view.",value:if p.list_view {"List"} else {"Grid"}.into(),change:|p| p.list_view=!p.list_view},
-Setting {title:"Show hidden files",description:"Show dotfiles by default. Ctrl+H toggles this per window.",value:yes(p.show_hidden),change:|p| p.show_hidden=!p.show_hidden},
-Setting {title:"Sort by",description:"Choose the file ordering criterion.",value:["Name","Size","Modified","Type"][p.sort_by.min(3)].into(),change:|p| p.sort_by=(p.sort_by+1)%4},
-Setting {title:"Descending order",description:"Reverse the selected sort order.",value:yes(p.reverse_sort),change:|p| p.reverse_sort=!p.reverse_sort},
-Setting {title:"Folders first",description:"Keep folders ahead of files in either sort direction.",value:yes(p.folders_first),change:|p| p.folders_first=!p.folders_first},
-Setting {title:"Show sidebar",description:"Display places and bookmarks.",value:yes(p.show_sidebar),change:|p| p.show_sidebar=!p.show_sidebar},
-Setting {title:"Start in Home",description:"Open your home folder on the next launch; otherwise use the working directory.",value:yes(p.home_start),change:|p| p.home_start=!p.home_start},
+Setting {title:"Default view",description:"Choose grid or list view.",control:Control::Choice {labels:&["Grid","List"],selected:usize::from(p.list_view),set:|p,index| p.list_view=index==1}},
+Setting {title:"Show hidden files",description:"Show dotfiles by default. Ctrl+H toggles this per window.",control:Control::Toggle {checked:p.show_hidden, set:|p,value| p.show_hidden=value}},
+Setting {title:"Sort by",description:"Choose the file ordering criterion.",control:Control::Choice {labels:&["Name","Size","Modified","Type"],selected:p.sort_by.min(3),set:|p,index| p.sort_by=index}},
+Setting {title:"Descending order",description:"Reverse the selected sort order.",control:Control::Toggle {checked:p.reverse_sort, set:|p,value| p.reverse_sort=value}},
+Setting {title:"Folders first",description:"Keep folders ahead of files in either sort direction.",control:Control::Toggle {checked:p.folders_first, set:|p,value| p.folders_first=value}},
+Setting {title:"Show sidebar",description:"Display places and bookmarks.",control:Control::Toggle {checked:p.show_sidebar, set:|p,value| p.show_sidebar=value}},
+Setting {title:"Start in Home",description:"Open your home folder on the next launch; otherwise use the working directory.",control:Control::Toggle {checked:p.home_start, set:|p,value| p.home_start=value}},
 ] }
