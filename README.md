@@ -77,22 +77,28 @@ libraries. Workflow artifacts are retained for 30 days.
 
 ### Publish a GitHub Release
 
-Push a version tag on the commit you want to release, including the workflow:
+Every successful push build on `main` and every manual **Build Linux** run
+automatically publishes a GitHub Release with the application archive and its
+SHA-256 checksum. For branch builds, the workflow creates a tag named
+`build-<run-id>` pointing to the exact commit that was built. No manual tag
+creation is required. Pull request builds only upload workflow artifacts.
+
+For a named version release, push a version tag instead:
 
 ```sh
 git tag v0.1.0
 git push origin v0.1.0
 ```
 
-After the build succeeds, the workflow creates a GitHub Release for that tag
-with generated release notes and attaches `veyra-linux-x86_64.tar.gz` and its
+The workflow uses the version tag as the release tag when building a tag.
+Releases include generated release notes, `veyra-linux-x86_64.tar.gz`, and its
 SHA-256 checksum. Download these files directly from the repository's
 **Releases** page, then use the extraction commands above. Release assets do
 not have the workflow artifacts' 30-day expiry.
 
 You can also run **Build Linux** manually against an existing `v*` tag to
-publish it. Rerunning a tag build replaces the matching assets on its existing
-release. Branch and pull request builds only upload workflow artifacts.
+publish it. Rerunning a workflow run replaces the matching assets on its
+existing release.
 
 ## Keyboard shortcuts
 
