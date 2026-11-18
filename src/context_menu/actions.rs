@@ -25,6 +25,7 @@ pub enum Command {
     Copy,
     Cut,
     Rename,
+    BatchRename,
     Trash,
     Delete,
 }
@@ -103,6 +104,13 @@ pub fn run(
                 window,
                 cx,
             );
+        }
+        Command::BatchRename => {
+            let paths = selected(state);
+            if paths.len() < 2 {
+                return;
+            }
+            crate::batch_rename::open(state, window, cx);
         }
         Command::Copy | Command::Cut => {
             let paths = selected(state);

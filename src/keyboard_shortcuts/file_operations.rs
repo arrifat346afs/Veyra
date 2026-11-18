@@ -13,6 +13,13 @@ pub(super) fn handle(
     window: &mut Window,
     cx: &mut Context<MainWindow>,
 ) -> bool {
+    if state.batch_rename.is_some() {
+        if event.keystroke.key == "escape" {
+            crate::batch_rename::view::close(state, window, cx);
+            cx.stop_propagation();
+        }
+        return true;
+    }
     if state.file_dialog.is_some() {
         if event.keystroke.key == "escape" {
             dialog::close(state, window, cx);
@@ -63,6 +70,8 @@ pub(super) fn handle(
         && key == "delete"
     {
         Some(Command::Delete)
+    } else if m == ctrl && key == "f2" {
+        Some(Command::BatchRename)
     } else if m == Modifiers::default() {
         match key {
             "f2" => Some(Command::Rename),
