@@ -106,6 +106,24 @@ pub fn rename(source: &Path, target: &Path) -> io::Result<()> {
     if source == target {
         return Ok(());
     }
+    use std::os::unix::fs::MetadataExt;
+    let same_entry = source.symlink_metadata().ok().zip(target.symlink_metadata().ok())
+        .is_some_and(|(a, b)| a.dev() == b.dev() && a.ino() == b.ino());
+    if same_entry {
+        let parent = source.parent().unwrap_or_else(|| Path::new("."));
+        let mut temp = None;
+        for nonce in 0..1000u32 {
+            let candidate = parent.join(format!(".veyra-rename-{}-{nonce}", std::process::id()));
+            if candidate.symlink_metadata().is_err() { temp = Some(candidate); break; }
+        }
+        let temp = temp.ok_or_else(|| io::Error::other("Could not allocate a temporary filename"))?;
+        rename(source, &temp)?;
+        if let Err(error) = rename(&temp, target) {
+            let restore = rename(&temp, source);
+            return match restore { Ok(()) => Err(error), Err(restore_error) => Err(io::Error::other(format!("{error}; restoring original name also failed: {restore_error}"))) };
+        }
+        return Ok(());
+    }
     let source = CString::new(source.as_os_str().as_bytes())?;
     let target = CString::new(target.as_os_str().as_bytes())?;
     // Both C strings remain alive for the call; paths are relative to AT_FDCWD.

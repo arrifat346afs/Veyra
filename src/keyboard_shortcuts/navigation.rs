@@ -26,7 +26,7 @@ pub(super) fn handle(
     window: &mut Window,
     cx: &mut Context<MainWindow>,
 ) -> bool {
-    if state.file_dialog.is_some() || state.path_bar.editing || !state.focus.is_focused(window) {
+    if state.batch_rename.is_some() || state.file_dialog.is_some() || state.path_bar.editing || !state.focus.is_focused(window) {
         return false;
     }
     let key = event.keystroke.key.as_str();

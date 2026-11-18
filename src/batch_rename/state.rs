@@ -49,6 +49,7 @@ pub struct PreviewRow {
 pub struct BatchRename {
     /// The original paths being renamed (sorted).
     pub paths: Vec<PathBuf>,
+    pub identities: Vec<(u64, u64)>,
     pub mode:  Mode,
     /// For Replace mode: search text.
     pub find_input:    Entity<InputState>,
@@ -69,6 +70,8 @@ impl BatchRename {
         cx: &mut App,
     ) -> Self {
         paths.sort();
+        use std::os::unix::fs::MetadataExt;
+        let identities = paths.iter().map(|p| p.symlink_metadata().map(|m| (m.dev(), m.ino())).unwrap_or((0, 0))).collect();
         let find_input    = cx.new(|cx| InputState::new(window, cx).placeholder("Find"));
         let replace_input = cx.new(|cx| InputState::new(window, cx).placeholder("Replace with"));
         let preview = paths.iter().map(|p| PreviewRow {
@@ -78,6 +81,7 @@ impl BatchRename {
         }).collect();
         Self {
             paths,
+            identities,
             mode: Mode::Replace,
             find_input,
             replace_input,
@@ -105,6 +109,13 @@ impl BatchRename {
                 row.error = true;
             }
         }
+        if let Some(row) = self.preview.iter().find(|r| r.error) {
+            self.error = Some(if row.renamed.trim().is_empty() || row.renamed == "." || row.renamed == ".." || row.renamed.contains('/') || row.renamed.contains('\0') {
+                format!("Invalid filename: {}", row.renamed)
+            } else {
+                format!("Two files would be renamed to {}", row.renamed)
+            });
+        }
 
         // Check for empty names.
         for row in &mut self.preview {
@@ -117,6 +128,12 @@ impl BatchRename {
                 row.error = true;
             }
         }
+        for (path, row) in self.paths.iter().zip(&mut self.preview) {
+            if path.file_name().is_some_and(|name| name.to_str().is_none()) && row.original != row.renamed {
+                row.error = true;
+                self.error = Some("Cannot edit a filename that is not valid UTF-8".into());
+            }
+        }
     }
 
     /// Whether any preview row has an error.
@@ -127,9 +144,22 @@ impl BatchRename {
     /// Build the list of (source, destination) rename pairs.
     pub fn rename_pairs(&self) -> Vec<(PathBuf, PathBuf)> {
         self.paths.iter().zip(self.preview.iter()).map(|(source, row)| {
+            if row.original == row.renamed { return (source.clone(), source.clone()); }
             let dest = source.with_file_name(&row.renamed);
             (source.clone(), dest)
         }).collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::compute_format;
+    use std::path::PathBuf;
+
+    #[::core::prelude::v1::test]
+    fn format_does_not_expand_tokens_inside_inserted_values() {
+        let rows = compute_format(&[PathBuf::from("draft[ext].txt")], "[name]_copy[ext]", 1);
+        assert_eq!(rows[0].renamed, "draft[ext]_copy.txt");
     }
 }
 
@@ -176,13 +206,24 @@ pub fn compute_format(paths: &[PathBuf], template: &str, counter_start: usize) -
         let renamed = if template.is_empty() {
             original.clone()
         } else {
-            template
-                .replace("[n]", &n.to_string())
-                .replace("[0n]", &format!("{:02}", n))
-                .replace("[00n]", &format!("{:03}", n))
-                .replace("[name]", stem(&original))
-                .replace("[ext]", ext(&original))
+            expand_template(template, n, stem(&original), ext(&original))
         };
         PreviewRow { original, renamed, error: false }
     }).collect()
+}
+
+fn expand_template(template: &str, n: usize, name: &str, ext: &str) -> String {
+    let mut out = String::new();
+    let mut rest = template;
+    while !rest.is_empty() {
+        if let Some((token, value)) = [("[00n]", format!("{:03}", n)), ("[0n]", format!("{:02}", n)), ("[n]", n.to_string()), ("[name]", name.to_string()), ("[ext]", ext.to_string())].into_iter().find(|(t, _)| rest.starts_with(t)) {
+            out.push_str(&value);
+            rest = &rest[token.len()..];
+        } else {
+            let ch = rest.chars().next().unwrap();
+            out.push(ch);
+            rest = &rest[ch.len_utf8()..];
+        }
+    }
+    out
 }

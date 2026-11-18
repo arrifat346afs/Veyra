@@ -58,6 +58,7 @@ pub(super) fn handle(
             "v" => Some(Command::Paste),
             "a" => Some(Command::SelectAll),
             "r" => Some(Command::Reload),
+            "f2" => Some(Command::BatchRename),
             _ => None,
         }
     } else if m == ctrl_shift && key == "n" {
@@ -70,8 +71,6 @@ pub(super) fn handle(
         && key == "delete"
     {
         Some(Command::Delete)
-    } else if m == ctrl && key == "f2" {
-        Some(Command::BatchRename)
     } else if m == Modifiers::default() {
         match key {
             "f2" => Some(Command::Rename),

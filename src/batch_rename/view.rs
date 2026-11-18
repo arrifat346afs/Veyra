@@ -9,6 +9,7 @@ use gpui_kit::component::{
 };
 use gpui_kit::prelude::*;
 use gpui_kit::*;
+use std::path::PathBuf;
 
 /// Open the batch-rename dialog with the currently selected files.
 pub fn open(
@@ -35,6 +36,7 @@ pub fn open(
         cx.notify();
     }).detach();
 
+    batch.find_input.update(cx, |input, cx| input.focus(window, cx));
     state.batch_rename = Some(batch);
     cx.notify();
 }
@@ -57,11 +59,41 @@ fn submit(state: &mut MainWindow, window: &mut Window, cx: &mut Context<MainWind
         return;
     }
 
-    let pairs = batch.rename_pairs();
+    let pairs: Vec<_> = batch.rename_pairs().into_iter().filter(|(s, d)| s != d).map(|(s, d)| {
+        let index = batch.paths.iter().position(|path| path == &s).unwrap();
+        (s, d, batch.identities[index])
+    }).collect();
     actions::perform(state, window, cx, move || {
-        for (source, dest) in &pairs {
-            crate::context_menu::files::rename(source, dest)
-                .map_err(|e| format!("{}: {e}", source.display()))?;
+        use std::os::unix::fs::MetadataExt;
+        for (source, _, expected) in &pairs {
+            let actual = source.symlink_metadata().map(|m| (m.dev(), m.ino())).map_err(|_| format!("{} changed. Review the selection again.", source.display()))?;
+            if actual != *expected { return Err(format!("{} changed. Review the selection again.", source.display())); }
+        }
+        for (i, (source, dest, _)) in pairs.iter().enumerate() {
+            if dest.symlink_metadata().is_ok() && !pairs.iter().any(|(planned, _, _)| planned == dest) {
+                return Err(format!("Destination {} is already occupied", dest.display()));
+            }
+            for (other_source, other_dest, _) in pairs.iter().skip(i + 1) {
+                if dest == other_source && other_dest == source { return Err("The rename plan contains a cycle; no files were changed.".into()); }
+            }
+        }
+        let mut pending: Vec<_> = pairs.iter().map(|(s, d, _)| (s.clone(), d.clone())).collect();
+        let mut ordered = Vec::new();
+        while !pending.is_empty() {
+            if let Some(i) = pending.iter().position(|(_, dest)| !pending.iter().any(|(src, _)| src == dest)) {
+                ordered.push(pending.remove(i));
+            } else { return Err("The rename plan contains a cycle; no files were changed.".into()); }
+        }
+        let mut succeeded = Vec::new();
+        for (source, dest) in &ordered {
+            use std::os::unix::fs::MetadataExt;
+            let actual = source.symlink_metadata().map(|m| (m.dev(), m.ino())).map_err(|_| format!("{} changed. Review the selection again.", source.display()))?;
+            let expected = pairs.iter().find(|(p, _, _)| p == source).unwrap().2;
+            if actual != expected { return Err(format!("{} changed. Review the selection again.", source.display())); }
+            if let Err(e) = crate::context_menu::files::rename(source, dest) {
+                return Err(format!("Rename stopped: {e}. Succeeded: {}. Remaining: {}", succeeded.iter().map(|p: &PathBuf| p.display().to_string()).collect::<Vec<_>>().join(", "), ordered.iter().skip(succeeded.len()).map(|(_, p)| p.display().to_string()).collect::<Vec<_>>().join(", ")));
+            }
+            succeeded.push(source.clone());
         }
         Ok(())
     });
