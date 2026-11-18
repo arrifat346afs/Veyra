@@ -2,7 +2,7 @@
 pub mod actions;
 mod clipboard;
 pub mod dialog;
-mod files;
+pub mod files;
 mod view;
 pub use view::{attach, attach_entry};
 

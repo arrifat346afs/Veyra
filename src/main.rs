@@ -34,3 +34,5 @@ mod thumbnails;
 mod components;
 
 mod context_menu;
+
+mod batch_rename;

@@ -100,6 +100,10 @@ fn attach_to(
                     item("Rename…", IconName::Pencil, Command::Rename, owner.clone())
                         .disabled(count != 1),
                 )
+                .item(
+                    item("Batch rename…", IconName::Pencil, Command::BatchRename, owner.clone())
+                        .disabled(count < 2),
+                )
                 .item(item(
                     "Move to trash",
                     IconName::Trash,

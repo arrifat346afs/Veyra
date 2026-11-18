@@ -31,6 +31,7 @@ pub struct MainWindow {
     _theme_watch: Task<()>,
     pub(crate) focus: FocusHandle,
     pub(crate) application_chooser: Option<crate::context_menu::application_chooser::Chooser>,
+    pub(crate) batch_rename: Option<crate::batch_rename::BatchRename>,
     pub(crate) file_dialog: Option<crate::context_menu::dialog::Dialog>,
     pub(crate) file_operation_busy: bool,
     pub(crate) cut_clipboard: Option<String>,
@@ -128,7 +129,7 @@ impl MainWindow {
                 });
                 let settings_sliders = crate::settings::sliders::create(&preferences,cx);
                 let theme_watch = crate::settings::theme_watch::start(cx);
-                Self { quick_preview:Default::default(), application_chooser:None, portal_settings:Default::default(), picker, _theme_watch:theme_watch, theme_error:None, file_dialog:None, file_operation_busy:false, cut_clipboard:None, path_bar, thumbnail_generation: 0, selection: Default::default(), settings_sliders, settings_window:None,settings_page:0,settings_search,settings_error,
+                Self { quick_preview:Default::default(), application_chooser:None, portal_settings:Default::default(), picker, _theme_watch:theme_watch, theme_error:None, batch_rename:None, file_dialog:None, file_operation_busy:false, cut_clipboard:None, path_bar, thumbnail_generation: 0, selection: Default::default(), settings_sliders, settings_window:None,settings_page:0,settings_search,settings_error,
                     focus, current_dir, entries, error, search, back_history: vec![], forward_history: vec![], list_view: preferences.list_view, reverse_sort: preferences.reverse_sort, show_sidebar: preferences.show_sidebar, show_hidden: preferences.show_hidden, custom_theme_path, preferences }
             });
             // Override the component root’s opaque background so pane alpha reaches the compositor.
@@ -269,6 +270,7 @@ impl Render for MainWindow {
         if self.path_bar.editing { root = root.child(crate::components::path_bar::suggestions_overlay(self,window_width,cx)); }
         if self.file_operation_busy && self.file_dialog.is_none() {root=root.child(div().absolute().bottom(px(16.)).right(px(16.)).p(px(12.)).rounded(cx.theme().radius).bg(palette.popover).text_color(palette.popover_foreground).child("Working…"));}
         if self.file_dialog.is_some() { root = root.child(crate::context_menu::dialog::view(self,cx)); }
+        if self.batch_rename.is_some() { root = root.child(crate::batch_rename::view(self,cx)); }
         if self.application_chooser.is_some() {root=root.child(crate::context_menu::application_chooser::view(self,cx));}
         crate::keyboard_shortcuts::attach(root, &self.focus, cx)
     }
