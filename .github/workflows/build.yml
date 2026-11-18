@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: build-linux-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 env:
   CARGO_TERM_COLOR: always
@@ -66,3 +66,39 @@ jobs:
           if-no-files-found: error
           retention-days: 30
           compression-level: 0
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download application
+        uses: actions/download-artifact@v7
+        with:
+          name: veyra-linux-x86_64
+          path: dist
+
+      - name: Verify archive checksum
+        working-directory: dist
+        run: sha256sum -c veyra-linux-x86_64.tar.gz.sha256
+
+      - name: Create release or update assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" \
+              dist/veyra-linux-x86_64.tar.gz \
+              dist/veyra-linux-x86_64.tar.gz.sha256 --clobber
+          else
+            gh release create "$RELEASE_TAG" \
+              dist/veyra-linux-x86_64.tar.gz \
+              dist/veyra-linux-x86_64.tar.gz.sha256 \
+              --verify-tag --generate-notes --title "Veyra $RELEASE_TAG"
+          fi

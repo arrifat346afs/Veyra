@@ -73,7 +73,26 @@ cd veyra-linux-x86_64
 The archive includes the release binary and the portal integration scripts.
 It targets x86_64 Linux and is built on Ubuntu 24.04; it requires compatible
 system libraries and the runtime requirements above. It does not bundle those
-libraries. Downloads are retained for 30 days.
+libraries. Workflow artifacts are retained for 30 days.
+
+### Publish a GitHub Release
+
+Push a version tag on the commit you want to release, including the workflow:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+After the build succeeds, the workflow creates a GitHub Release for that tag
+with generated release notes and attaches `veyra-linux-x86_64.tar.gz` and its
+SHA-256 checksum. Download these files directly from the repository's
+**Releases** page, then use the extraction commands above. Release assets do
+not have the workflow artifacts' 30-day expiry.
+
+You can also run **Build Linux** manually against an existing `v*` tag to
+publish it. Rerunning a tag build replaces the matching assets on its existing
+release. Branch and pull request builds only upload workflow artifacts.
 
 ## Keyboard shortcuts
 
