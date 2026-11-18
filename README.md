@@ -55,10 +55,10 @@ The binary is written to `target/release/veyra`.
 
 ### Build with GitHub Actions
 
-Push the workflow to GitHub, then open **Actions → Build Linux → Run workflow**
-and select the branch to build. The workflow also runs for pushes to `main`,
-tags beginning with `v`, and pull requests. The manual run button becomes
-available once the workflow is on the repository's default branch.
+Open **Actions → Build Linux → Run workflow** and select the branch to build.
+The workflow runs for pull requests, version tags beginning with `v`, and
+manual runs. Pushes to `main` do not start a build. The manual run button
+becomes available once the workflow is on the repository's default branch.
 
 When the run succeeds, download **veyra-linux-x86_64** from its **Artifacts**
 section. Unzip the download, then extract and run the application:
@@ -69,6 +69,12 @@ tar -xzf veyra-linux-x86_64.tar.gz
 cd veyra-linux-x86_64
 ./veyra
 ```
+
+The `.tar.gz` file is a compressed application archive, not an Arch package;
+`pacman -U` cannot install it. Extract it with `tar -xzf`, then run `./veyra`
+or use `./scripts/install-desktop.sh` to add it to your user app menu. To
+install through pacman, download the `.pkg.tar.zst` file from the release and
+run `sudo pacman -U ./veyra-*.pkg.tar.zst`.
 
 The archive includes the release binary and the portal integration scripts.
 It targets x86_64 Linux and is built on Ubuntu 24.04; it requires compatible
@@ -82,10 +88,12 @@ directly from the extracted folder.
 
 ### Publish a GitHub Release
 
-Pushes and pull requests build the app and upload a workflow artifact. To
-publish a GitHub Release, manually run **Build Linux** from the Actions page.
+Pull requests build the app and upload a workflow artifact. Pushes to `main`
+do not trigger builds. To publish a GitHub Release, manually run **Build Linux**
+from the Actions page.
 That manual run publishes a `v`-prefixed package version (for example,
-`v0.1.0`), the application archive, and its SHA-256 checksum. The workflow
+`v0.1.0`), the application archive, and an Arch package (`.pkg.tar.zst`), with
+SHA-256 checksums. The workflow
 reads the version from `Cargo.toml`; update that version when you want to
 publish a new release. Manual builds for the same version update that
 release's assets.
@@ -98,8 +106,8 @@ git push origin v0.1.0
 ```
 
 The workflow uses the version tag as the release tag when building a tag.
-Releases include generated release notes, `veyra-linux-x86_64.tar.gz`, and its
-SHA-256 checksum. Download these files directly from the repository's
+Releases include generated release notes, `veyra-linux-x86_64.tar.gz`, the
+Arch package, and their SHA-256 checksums. Download these files directly from the repository's
 **Releases** page, then use the extraction commands above. Release assets do
 not have the workflow artifacts' 30-day expiry.
 
