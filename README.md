@@ -77,11 +77,13 @@ libraries. Workflow artifacts are retained for 30 days.
 
 ### Publish a GitHub Release
 
-Every successful push build on `main` and every manual **Build Linux** run
-automatically publishes a GitHub Release with the application archive and its
-SHA-256 checksum. For branch builds, the workflow creates a tag named
-`build-<run-id>` pointing to the exact commit that was built. No manual tag
-creation is required. Pull request builds only upload workflow artifacts.
+Pushes and pull requests build the app and upload a workflow artifact. To
+publish a GitHub Release, manually run **Build Linux** from the Actions page.
+That manual run publishes a `v`-prefixed package version (for example,
+`v0.1.0`), the application archive, and its SHA-256 checksum. The workflow
+reads the version from `Cargo.toml`; update that version when you want to
+publish a new release. Manual builds for the same version update that
+release's assets.
 
 For a named version release, push a version tag instead:
 

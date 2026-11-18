@@ -22,11 +22,17 @@ jobs:
     name: Linux x86_64 release
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
     steps:
       - name: Check out source
         uses: actions/checkout@v6
         with:
           persist-credentials: false
+
+      - name: Read package version
+        id: metadata
+        run: echo "version=$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["package"]["version"])')" >> "$GITHUB_OUTPUT"
 
       - name: Install Linux build dependencies
         run: |
@@ -70,7 +76,7 @@ jobs:
   release:
     name: Publish GitHub Release
     needs: build
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -90,7 +96,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || format('build-{0}', github.run_id) }}
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || format('v{0}', needs.build.outputs.version) }}
           RELEASE_COMMIT: ${{ github.sha }}
         run: |
           if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
