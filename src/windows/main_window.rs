@@ -14,6 +14,8 @@ use crate::layouts::{content, sidebar, topbar};
 use gpui_kit::component::input::{InputState, InputEvent};
 
 pub struct MainWindow {
+    pub(crate) portal_settings: crate::settings::file_picker::State,
+    pub(crate) picker: Option<crate::picker::Picker>,
     pub(crate) path_bar: crate::components::path_bar::PathBar,
     pub(crate) thumbnail_generation: u64,
     pub(crate) selection: crate::selection::Selection,
@@ -27,6 +29,7 @@ pub struct MainWindow {
     pub(crate) theme_error: Option<String>,
     _theme_watch: Task<()>,
     pub(crate) focus: FocusHandle,
+    pub(crate) application_chooser: Option<crate::context_menu::application_chooser::Chooser>,
     pub(crate) file_dialog: Option<crate::context_menu::dialog::Dialog>,
     pub(crate) file_operation_busy: bool,
     pub(crate) cut_clipboard: Option<String>,
@@ -46,9 +49,10 @@ pub struct MainWindow {
 }
 
 impl MainWindow {
-    pub fn open(cx: &mut App) {
-        cx.open_window(WindowOptions { window_background: WindowBackgroundAppearance::Transparent, ..WindowOptions::default() }, |window, cx| {
-            window.set_window_title("Veyra");
+    pub fn open(picker_request: Option<crate::picker::Request>, cx: &mut App) {
+        cx.open_window(WindowOptions { window_background: WindowBackgroundAppearance::Transparent, ..WindowOptions::default() }, move |window, cx| {
+            window.set_window_title(picker_request.as_ref().map(|r| r.title.as_str()).filter(|s| !s.is_empty()).unwrap_or("Veyra"));
+            if picker_request.is_some() { window.on_window_should_close(cx, |_,cx| {cx.quit(); true}); }
             let (preferences, settings_error) = match crate::settings::preferences::Preferences::load() {
                 Ok(p)=>(p,None), Err(e)=>(Default::default(),Some(e))
             };
@@ -59,6 +63,7 @@ impl MainWindow {
             crate::settings::rounding::apply(preferences.corner_radius, cx);
             let current_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
             let current_dir = if preferences.home_start { std::env::var_os("HOME").map(PathBuf::from).unwrap_or(current_dir) } else { current_dir };
+            let current_dir = picker_request.as_ref().map(|r| r.initial_directory()).unwrap_or(current_dir);
             let (entries, error) = read_directory(&current_dir);
             let view = cx.new(|cx| {
                 let focus = cx.focus_handle();
@@ -111,9 +116,18 @@ impl MainWindow {
                         _ => {}
                     }
                 }).detach();
+                let picker = picker_request.map(|request| {
+                    let filename = cx.new(|cx| InputState::new(window,cx).placeholder("File name"));
+                    filename.update(cx, |input,cx| input.set_value(request.current_name.clone(),window,cx));
+                    cx.subscribe_in(&filename,window,|state,_,event: &InputEvent,window,cx| {
+                        if matches!(event,InputEvent::PressEnter {..}) { crate::picker::accept(state,window,cx); }
+                        else { if let Some(picker) = &mut state.picker {picker.error=None;} cx.notify(); }
+                    }).detach();
+                    crate::picker::Picker {request,filename,error:None}
+                });
                 let settings_sliders = crate::settings::sliders::create(&preferences,cx);
                 let theme_watch = crate::settings::theme_watch::start(cx);
-                Self { _theme_watch:theme_watch, theme_error:None, file_dialog:None, file_operation_busy:false, cut_clipboard:None, path_bar, thumbnail_generation: 0, selection: Default::default(), settings_sliders, settings_window:None,settings_page:0,settings_search,settings_error,
+                Self { application_chooser:None, portal_settings:Default::default(), picker, _theme_watch:theme_watch, theme_error:None, file_dialog:None, file_operation_busy:false, cut_clipboard:None, path_bar, thumbnail_generation: 0, selection: Default::default(), settings_sliders, settings_window:None,settings_page:0,settings_search,settings_error,
                     focus, current_dir, entries, error, search, back_history: vec![], forward_history: vec![], list_view: preferences.list_view, reverse_sort: preferences.reverse_sort, show_sidebar: preferences.show_sidebar, show_hidden: preferences.show_hidden, custom_theme_path, preferences }
             });
             // Override the component root’s opaque background so pane alpha reaches the compositor.
@@ -161,6 +175,7 @@ impl MainWindow {
         // All navigation routes end location editing, including sidebar places,
         // bookmarks, history, and opening a folder in the content pane.
         self.path_bar.cancel();
+        if let Some(picker) = &mut self.picker {picker.error=None;}
         self.focus.focus(window, cx);
         let (entries, error) = read_directory(&path);
         self.selection = Default::default();
@@ -193,7 +208,7 @@ impl Render for MainWindow {
         let query = if self.preferences.case_sensitive {query} else {query.to_lowercase()};
         let mut visible: Vec<_> = self.entries.iter().filter(|path| {
             let name = path.file_name().unwrap_or_default().to_string_lossy();
-            (self.show_hidden || !name.starts_with('.')) && (if self.preferences.case_sensitive {name.to_string()} else {name.to_lowercase()}).contains(&query)
+            self.picker.as_ref().is_none_or(|p| p.request.allows(path)) && (self.show_hidden || !name.starts_with('.')) && (if self.preferences.case_sensitive {name.to_string()} else {name.to_lowercase()}).contains(&query)
         }).cloned().collect();
         visible.sort_by(|a,b| {
             let order = match self.preferences.sort_by {
@@ -218,6 +233,7 @@ impl Render for MainWindow {
             &self.preferences,
             &self.selection,
             self.thumbnail_generation,
+            self.picker.is_some(),
             cx,
         );
         // A shared navigation frame overlays the continuous file background.
@@ -243,10 +259,12 @@ impl Render for MainWindow {
             .bg(palette.muted.opacity(self.preferences.window_opacity.min(100) as f32 / 100.))
             .child(frame.background(palette.background.opacity(self.preferences.foreground_alpha()), palette.radius))
             .child(body.child(div().flex_1().min_w(px(0.)).h_full().flex().flex_col()
-                .child(toolbar).child(workspace)));
+                .child(toolbar).child(workspace)
+                .children(self.picker.as_ref().map(|_| crate::picker::footer(self,cx)))));
         if self.path_bar.editing { root = root.child(crate::components::path_bar::suggestions_overlay(self,window_width,cx)); }
         if self.file_operation_busy && self.file_dialog.is_none() {root=root.child(div().absolute().bottom(px(16.)).right(px(16.)).p(px(12.)).rounded(cx.theme().radius).bg(palette.popover).text_color(palette.popover_foreground).child("Working…"));}
         if self.file_dialog.is_some() { root = root.child(crate::context_menu::dialog::view(self,cx)); }
+        if self.application_chooser.is_some() {root=root.child(crate::context_menu::application_chooser::view(self,cx));}
         crate::keyboard_shortcuts::attach(root, &self.focus, cx)
     }
 }

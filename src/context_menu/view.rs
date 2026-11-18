@@ -81,17 +81,18 @@ fn attach_to(
             .upgrade()
             .is_some_and(|state| state.read(cx).show_hidden);
         let document_owner = owner.clone();
-        let open_owner = owner.clone();
-        let mut menu = menu.min_w(px(252.));
+        // Empty-space menus apply Open with to the current folder; entry
+        // menus apply it to the clicked item or the existing multi-selection.
+        let mut menu = menu.min_w(px(252.))
+            .item(item(
+                "Open with…",
+                IconName::AppWindow,
+                Command::ChooseApplication,
+                owner.clone(),
+            ))
+            .separator();
         if path.is_some() {
             menu = menu
-                .item(item(
-                    "Open",
-                    IconName::ExternalLink,
-                    Command::Open,
-                    owner.clone(),
-                ))
-                .separator()
                 .item(item("Cut", IconName::Scissors, Command::Cut, owner.clone()))
                 .item(item("Copy", IconName::Copy, Command::Copy, owner.clone()))
                 .item(
@@ -177,26 +178,6 @@ fn attach_to(
             Command::Terminal,
             owner.clone(),
         ))
-        .submenu_with_icon(
-            Some(icon(IconName::AppWindow)),
-            "Open with",
-            window,
-            cx,
-            move |menu, _, _| {
-                menu.min_w(px(252.)).item(item(
-                    "Default application",
-                    IconName::ExternalLink,
-                    Command::Open,
-                    open_owner.clone(),
-                ))
-                .item(item(
-                    "Choose application…",
-                    IconName::AppWindow,
-                    Command::ChooseApplication,
-                    open_owner.clone(),
-                ))
-            },
-        )
         .separator()
         .item(item(
             "Properties",

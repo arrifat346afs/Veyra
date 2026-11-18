@@ -15,6 +15,7 @@ pub enum Kind {
     Rename(PathBuf),
     Delete(Vec<PathBuf>),
     Message,
+    PickerOverwrite(Vec<PathBuf>),
 }
 pub struct Dialog {
     pub kind: Kind,
@@ -92,6 +93,14 @@ pub fn submit(state: &mut MainWindow, window: &mut Window, cx: &mut Context<Main
         .as_ref()
         .map(|input| input.read(cx).value().to_string())
         .unwrap_or_default();
+    if let Kind::PickerOverwrite(paths) = &kind {
+        if let Some(picker) = &state.picker {
+            if let Err(error) = crate::picker::finish(&picker.request,paths,cx) {
+                state.file_dialog.as_mut().unwrap().error=Some(error); cx.notify();
+            }
+        }
+        return;
+    }
     if matches!(kind, Kind::Message) {
         close(state, window, cx);
         return;
@@ -110,7 +119,7 @@ pub fn submit(state: &mut MainWindow, window: &mut Window, cx: &mut Context<Main
             }
             Kind::Rename(source) => super::files::rename(&source, &source.with_file_name(name)),
             Kind::Delete(paths) => super::files::delete(&paths),
-            Kind::Message => Ok(()),
+            Kind::Message | Kind::PickerOverwrite(_) => Ok(()),
         }
         .map_err(|e| e.to_string())
     });
@@ -125,6 +134,7 @@ pub fn view(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
         Kind::Rename(_) => "Rename",
         Kind::Delete(_) => "Delete permanently",
         Kind::Message => "Close",
+        Kind::PickerOverwrite(_) => "Replace",
     };
     div()
         .absolute()

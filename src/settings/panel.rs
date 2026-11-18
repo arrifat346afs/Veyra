@@ -12,7 +12,8 @@ pub fn panel(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
         div().p(px(20.)).child(if state.settings_page==3 {super::devices::DESCRIPTION.to_owned()} else {super::about::description()}).into_any_element()
     } else { super::controls::rows(rows,&query,state.preferences.sidebar_opacity,cx) };
     let body = div().flex().flex_col().gap(px(12.)).child(body)
-        .children((state.settings_page == 1 || !query.is_empty()).then(|| super::sliders::rows(state,&query,cx)));
+        .children((state.settings_page == 1 || !query.is_empty()).then(|| super::sliders::rows(state,&query,cx)))
+        .children(((query.is_empty() && state.settings_page == 0) || (!query.is_empty() && super::file_picker::matches(&query))).then(|| super::file_picker::view(state,cx)));
     div().size_full().rounded(palette.radius).overflow_hidden().flex().text_color(palette.foreground)
         .child(div().w(px(200.)).flex_shrink_0().h_full().flex().flex_col().gap(px(4.)).p(px(12.)).bg(palette.muted.opacity(state.preferences.foreground_alpha()))
             .child(div().mb(px(8.)).child(Input::new(&state.settings_search)))

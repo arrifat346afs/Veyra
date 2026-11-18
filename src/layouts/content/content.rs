@@ -23,6 +23,7 @@ pub fn content(
     preferences: &crate::settings::preferences::Preferences,
     selection: &crate::selection::Selection,
     thumbnail_generation: u64,
+    picker: bool,
     cx: &mut Context<MainWindow>,
 ) -> AnyElement {
     let icon_size = preferences.icon_size.clamp(48,192) as f32;
@@ -51,9 +52,9 @@ pub fn content(
             .child(div().w_full().text_center().text_ellipsis().text_size(px(preferences.filename_size.clamp(10,24) as f32)).child(name))
             .when(!is_dir && preferences.show_sizes, |tile| tile.child(div().text_color(palette.muted_foreground).text_size(px(11.0))
                 .child(format_file_size(entry))))
-            .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| { if !(event.modifiers().control || event.modifiers().shift) && event.click_count() == 2 {if is_dir {this.navigate_to(path.clone(), window, cx);} else {cx.open_with_system(&path);}} }))
+            .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| { if !(event.modifiers().control || event.modifiers().shift) && event.click_count() == 2 {if is_dir {this.navigate_to(path.clone(), window, cx);} else if this.picker.is_some() {crate::picker::accept(this,window,cx);} else {cx.open_with_system(&path);}} }))
         ;
-        crate::selection::item(tile, entry.clone(), selection, cx)
+        crate::selection::item(tile, entry.clone(), selection, picker, cx)
     }).collect();
 
     let body = div().flex_1().min_h(px(0.)).min_w(px(0.)).h_full().flex().flex_col()
@@ -66,7 +67,7 @@ pub fn content(
                 div().w_full().flex().flex_wrap().content_start().gap(px(spacing)).p(px(18.0)).children(entry_tiles)
             ).h_full().into_any_element()
         }).into_any_element();
-    crate::selection::area(body,selection,cx)
+    crate::selection::area(body,selection,picker,cx)
 }
 
 /// Resolve an icon from the active Papirus theme, including user-installed overrides.

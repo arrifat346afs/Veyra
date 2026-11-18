@@ -2,15 +2,18 @@ use gpui_kit::{application, init};
 use gpui_kit::component::{Theme, ThemeMode};
 use crate::windows::MainWindow;
 
-pub fn run() {
+pub fn run(picker: Option<crate::picker::Request>) {
     application()
         // The default GPUI Kit bundle contains only its standard component
         // icons. This file manager uses additional Lucide icons for its places,
         // so register the full catalog to make every IconName resolvable.
         .with_assets(gpui_kit_assets::AllAssets)
-        .run(|cx| {
+        .run(move |cx| {
             init(cx);
             Theme::change(ThemeMode::Dark, None, cx);
-            MainWindow::open(cx);
+            if picker.is_some() {
+                cx.on_window_closed(|cx, _| { if cx.windows().is_empty() { cx.quit(); } }).detach();
+            }
+            MainWindow::open(picker, cx);
         });
 }

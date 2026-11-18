@@ -5,7 +5,8 @@ use gpui_kit::*;
 const WIDTH: f32 = 900.;
 const HEIGHT: f32 = 600.;
 
-pub fn open(_state: &mut MainWindow, cx: &mut Context<MainWindow>) {
+pub fn open(state: &mut MainWindow, cx: &mut Context<MainWindow>) {
+    super::file_picker::run(state,crate::services::portal_setup::Action::Refresh,cx);
     let owner = cx.entity().downgrade();
     // Opening a GPUI window can render its contents immediately. Do not hold
     // MainWindow's entity update while that render builds the shared panel.

@@ -46,6 +46,14 @@ pub fn run(
     window: &mut Window,
     cx: &mut Context<MainWindow>,
 ) {
+    if let Some(picker) = &state.picker {
+        match command {
+            Command::Open => {crate::picker::accept(state,window,cx); return;}
+            Command::SelectAll if !picker.request.multiple => return,
+            Command::SelectAll | Command::Reload | Command::Hidden | Command::Bookmark => {}
+            _ => return,
+        }
+    }
     if state.file_operation_busy {
         return;
     }
@@ -164,7 +172,7 @@ pub fn run(
                     } else {
                         name.to_lowercase()
                     };
-                    (state.show_hidden || !name.starts_with('.')) && text.contains(&query)
+                    state.picker.as_ref().is_none_or(|picker| picker.request.allows(p) && (if picker.request.directory {p.is_dir()} else {p.is_file()})) && (state.show_hidden || !name.starts_with('.')) && text.contains(&query)
                 })
                 .cloned()
                 .collect();
@@ -189,42 +197,8 @@ pub fn run(
             }
         }
         Command::ChooseApplication => {
-            let picker = cx.prompt_for_paths(PathPromptOptions {
-                files: true,
-                directories: false,
-                multiple: false,
-                prompt: Some("Choose an executable application".into()),
-            });
             let paths = targets(state);
-            cx.spawn_in(window, async move |state, cx| match picker.await {
-                Ok(Ok(Some(apps))) => {
-                    if let Some(app) = apps.first() {
-                        let result = std::process::Command::new(app)
-                            .args(paths)
-                            .spawn()
-                            .map(|_| ())
-                            .map_err(|e| e.to_string());
-                        let _ = state.update_in(cx, |state, window, cx| {
-                            if let Err(e) = result {
-                                message(state, "Could not open application", e, window, cx);
-                            }
-                        });
-                    }
-                }
-                Ok(Err(e)) => {
-                    let _ = state.update_in(cx, |state, window, cx| {
-                        message(
-                            state,
-                            "Could not choose application",
-                            e.to_string(),
-                            window,
-                            cx,
-                        )
-                    });
-                }
-                _ => {}
-            })
-            .detach();
+            super::application_chooser::open(state,paths,window,cx);
         }
         Command::Terminal => {
             let paths = targets(state);

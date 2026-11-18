@@ -16,3 +16,5 @@ mod toggle;
 mod choice;
 
 pub mod rounding;
+
+pub mod file_picker;

@@ -5,3 +5,5 @@ pub mod dialog;
 mod files;
 mod view;
 pub use view::{attach, attach_entry};
+
+pub mod application_chooser;

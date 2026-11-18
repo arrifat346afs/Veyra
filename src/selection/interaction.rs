@@ -5,7 +5,7 @@ use gpui_kit::component::ActiveTheme as _;
 use std::path::PathBuf;
 use crate::windows::MainWindow;
 use super::{Selection,state::rectangle};
-pub fn item(tile: Stateful<Div>, path: PathBuf, selection: &Selection, cx: &mut Context<MainWindow>) -> AnyElement {
+pub fn item(tile: Stateful<Div>, path: PathBuf, selection: &Selection, picker: bool, cx: &mut Context<MainWindow>) -> AnyElement {
     let measured_path_for_menu=path.clone();
     let geometry=selection.geometry.clone();
     let measured_path=path.clone();
@@ -21,10 +21,16 @@ pub fn item(tile: Stateful<Div>, path: PathBuf, selection: &Selection, cx: &mut 
         .hover(move |style| style.bg(hover_color))
         .on_mouse_down(MouseButton::Left,cx.listener(move |state,event: &MouseDownEvent,window,cx| {
             state.focus.focus(window,cx);
-            if event.modifiers.control || event.modifiers.shift {
+            if state.picker.as_ref().is_none_or(|p| p.request.multiple) && (event.modifiers.control || event.modifiers.shift) {
                 if !state.selection.selected.insert(path.clone()) {state.selection.selected.remove(&path);}
             } else {
                 state.selection.selected.clear();state.selection.selected.insert(path.clone());
+            }
+            if let Some(picker) = &mut state.picker {
+                picker.error = None;
+                if picker.request.save && path.is_file() {
+                    picker.filename.update(cx, |input,cx| input.set_value(path.file_name().unwrap_or_default().to_string_lossy().to_string(),window,cx));
+                }
             }
             cx.stop_propagation();cx.notify();
         }))
@@ -32,9 +38,9 @@ pub fn item(tile: Stateful<Div>, path: PathBuf, selection: &Selection, cx: &mut 
         // static position after the icon and label, producing incorrect hit bounds.
         .child(canvas(move |bounds,_,_| {geometry.borrow_mut().items.insert(measured_path.clone(),bounds);},|_,_,_,_| {}).absolute().inset_0().size_full())
 ;
-    crate::context_menu::attach_entry(tile, measured_path_for_menu,cx)
+    if picker {tile.into_any_element()} else {crate::context_menu::attach_entry(tile, measured_path_for_menu,cx)}
 }
-pub fn area(body: AnyElement, selection: &Selection, cx: &mut Context<MainWindow>) -> AnyElement {
+pub fn area(body: AnyElement, selection: &Selection, picker: bool, cx: &mut Context<MainWindow>) -> AnyElement {
     let geometry=selection.geometry.clone();
     let drag=selection.drag;
     let radius=cx.theme().radius;
@@ -44,7 +50,7 @@ pub fn area(body: AnyElement, selection: &Selection, cx: &mut Context<MainWindow
             state.focus.focus(window,cx);
             if event.modifiers.control || event.modifiers.shift { state.selection.baseline=state.selection.selected.clone(); }
             else {state.selection.baseline.clear();state.selection.selected.clear();}
-            state.selection.drag=Some((event.position,event.position));cx.notify();
+            if state.picker.as_ref().is_none_or(|p| p.request.multiple) {state.selection.drag=Some((event.position,event.position));}cx.notify();
         }))
         .on_mouse_move(cx.listener(|state,event: &MouseMoveEvent,_,cx| {
             if state.selection.drag.is_some() {state.selection.update(event.position);cx.notify();}
@@ -64,5 +70,5 @@ pub fn area(body: AnyElement, selection: &Selection, cx: &mut Context<MainWindow
             }
         }).absolute().inset_0().size_full())
 ;
-    crate::context_menu::attach(area,cx)
+    if picker {area.into_any_element()} else {crate::context_menu::attach(area,cx)}
 }
