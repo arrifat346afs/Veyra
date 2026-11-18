@@ -12,6 +12,6 @@ pub fn attach(root: Div, focus: &FocusHandle, cx: &mut Context<MainWindow>) -> S
     root.id("file-manager").track_focus(focus)
         .capture_key_down(cx.listener(|state,event,window,cx| {
             if file_operations::handle(state,event,window,cx) {return;}
-            if !settings::handle(state,event,window,cx) && !path_location::handle(state,event,window,cx) && !state.settings_open { hidden_files::handle(state,event,window,cx); }
+            if !settings::handle(state,event,window,cx) && !path_location::handle(state,event,window,cx) { hidden_files::handle(state,event,window,cx); }
         }))
 }

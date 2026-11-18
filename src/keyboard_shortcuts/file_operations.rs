@@ -30,7 +30,7 @@ pub(super) fn handle(
         }
         return true;
     }
-    if state.settings_open || state.path_bar.editing || !state.focus.is_focused(window) {
+    if state.path_bar.editing || !state.focus.is_focused(window) {
         return false;
     }
     let key = event.keystroke.key.as_str();

@@ -8,8 +8,7 @@ mod behaviour;
 mod devices;
 mod about;
 mod panel;
-mod popup;
-pub use popup::popup;
+pub mod window;
 
 pub mod sliders;
 

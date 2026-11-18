@@ -19,7 +19,7 @@ pub struct MainWindow {
     pub(crate) selection: crate::selection::Selection,
     pub(crate) settings_sliders: Vec<Entity<gpui_kit::component::slider::SliderState>>,
     pub(crate) preferences: crate::settings::preferences::Preferences,
-    pub(crate) settings_open: bool,
+    pub(crate) settings_window: Option<AnyWindowHandle>,
     pub(crate) settings_page: usize,
     pub(crate) settings_search: Entity<InputState>,
     pub(crate) custom_theme_path: Entity<InputState>,
@@ -112,7 +112,7 @@ impl MainWindow {
                 }).detach();
                 let settings_sliders = crate::settings::sliders::create(&preferences,cx);
                 let theme_watch = crate::settings::theme_watch::start(cx);
-                Self { _theme_watch:theme_watch, theme_error:None, file_dialog:None, file_operation_busy:false, cut_clipboard:None, path_bar, thumbnail_generation: 0, selection: Default::default(), settings_sliders, settings_open:false,settings_page:0,settings_search,settings_error,
+                Self { _theme_watch:theme_watch, theme_error:None, file_dialog:None, file_operation_busy:false, cut_clipboard:None, path_bar, thumbnail_generation: 0, selection: Default::default(), settings_sliders, settings_window:None,settings_page:0,settings_search,settings_error,
                     focus, current_dir, entries, error, search, back_history: vec![], forward_history: vec![], list_view: preferences.list_view, reverse_sort: preferences.reverse_sort, show_sidebar: preferences.show_sidebar, show_hidden: preferences.show_hidden, custom_theme_path, preferences }
             });
             // Override the component root’s opaque background so pane alpha reaches the compositor.
@@ -220,8 +220,7 @@ impl Render for MainWindow {
         let mut body = div().flex().flex_1().min_h(px(0.));
         if self.show_sidebar { body = body.child(sidebar::sidebar(&self.current_dir, self.preferences.sidebar_opacity, cx)); }
         let mut root = div().relative().size_full().flex().flex_col().text_color(palette.foreground).child(toolbar).child(body.child(main_content));
-        if self.path_bar.editing && !self.settings_open { root = root.child(crate::components::path_bar::suggestions_overlay(self,window_width,cx)); }
-        if self.settings_open { root = root.child(crate::settings::popup(self, cx)); }
+        if self.path_bar.editing { root = root.child(crate::components::path_bar::suggestions_overlay(self,window_width,cx)); }
         if self.file_operation_busy && self.file_dialog.is_none() {root=root.child(div().absolute().bottom(px(16.)).right(px(16.)).p(px(12.)).rounded(px(8.)).bg(palette.popover).text_color(palette.popover_foreground).child("Working…"));}
         if self.file_dialog.is_some() { root = root.child(crate::context_menu::dialog::view(self,cx)); }
         crate::keyboard_shortcuts::attach(root, &self.focus, cx)

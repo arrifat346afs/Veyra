@@ -2,7 +2,6 @@
 use gpui_kit::*;
 use crate::windows::MainWindow;
 pub fn handle(state: &mut MainWindow,event: &KeyDownEvent,window: &mut Window,cx: &mut Context<MainWindow>) -> bool {
-    if state.settings_open {return false;}
     if state.path_bar.editing && !state.path_bar.suggestions.is_empty() {
         let len = state.path_bar.suggestions.len();
         match event.keystroke.key.as_str() {

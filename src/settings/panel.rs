@@ -29,7 +29,7 @@ pub fn panel(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
             .child(div().flex().justify_between().items_center()
                 .child(div().text_size(px(24.)).child(if query.is_empty() {titles[state.settings_page]} else {"Search results"}))
                 .child(div().id("close-settings").cursor_pointer().px(px(14.)).py(px(8.)).rounded(px(8.)).bg(palette.muted.opacity(state.preferences.foreground_alpha())).child("Close")
-                    .on_click(cx.listener(|s,_,window,cx| {s.settings_open=false;s.search.update(cx, |input,cx| input.focus(window,cx));cx.notify();}))))
+                    .on_click(cx.listener(|_,_,window,_| {window.remove_window();}))))
         .children(state.settings_error.clone().or_else(||state.theme_error.clone()).map(|error| div().text_color(palette.danger_foreground).child(error)))
             .child(div().flex_1().min_h(px(0.)).overflow_y_scrollbar().child(body)
                 .when(state.settings_page == 1 && query.is_empty(), |el| el.child(

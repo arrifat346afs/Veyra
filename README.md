@@ -18,7 +18,7 @@ A file manager for Linux, built in Rust with [GPUI](https://www.gpui.rs/) and
 - Dark/light and custom JSON themes with live reload when the theme file changes
 - Folder icons follow the theme accent while preserving their shading and symbols
 - Window, sidebar, and surface opacity sliders
-- Searchable settings, persisted across launches
+- Searchable settings in a separate fixed-size window, persisted across launches
 
 ## Requirements
 
