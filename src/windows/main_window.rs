@@ -14,6 +14,7 @@ use crate::layouts::{content, sidebar, topbar};
 use gpui_kit::component::input::{InputState, InputEvent};
 
 pub struct MainWindow {
+    pub(crate) quick_preview: super::quick_preview::State,
     pub(crate) portal_settings: crate::settings::file_picker::State,
     pub(crate) picker: Option<crate::picker::Picker>,
     pub(crate) path_bar: crate::components::path_bar::PathBar,
@@ -127,7 +128,7 @@ impl MainWindow {
                 });
                 let settings_sliders = crate::settings::sliders::create(&preferences,cx);
                 let theme_watch = crate::settings::theme_watch::start(cx);
-                Self { application_chooser:None, portal_settings:Default::default(), picker, _theme_watch:theme_watch, theme_error:None, file_dialog:None, file_operation_busy:false, cut_clipboard:None, path_bar, thumbnail_generation: 0, selection: Default::default(), settings_sliders, settings_window:None,settings_page:0,settings_search,settings_error,
+                Self { quick_preview:Default::default(), application_chooser:None, portal_settings:Default::default(), picker, _theme_watch:theme_watch, theme_error:None, file_dialog:None, file_operation_busy:false, cut_clipboard:None, path_bar, thumbnail_generation: 0, selection: Default::default(), settings_sliders, settings_window:None,settings_page:0,settings_search,settings_error,
                     focus, current_dir, entries, error, search, back_history: vec![], forward_history: vec![], list_view: preferences.list_view, reverse_sort: preferences.reverse_sort, show_sidebar: preferences.show_sidebar, show_hidden: preferences.show_hidden, custom_theme_path, preferences }
             });
             // Override the component root’s opaque background so pane alpha reaches the compositor.
@@ -225,6 +226,10 @@ impl Render for MainWindow {
         let path_bar = crate::components::path_bar::view(self, cx);
         self.selection.geometry.borrow_mut().items.clear();
         self.selection.selected.retain(|path| visible.contains(path));
+        if self.selection.cursor.as_ref().is_some_and(|path| !visible.contains(path)) {
+            self.selection.cursor = None;
+        }
+        self.selection.visible = visible.clone();
         let main_content = content::content(
             &self.current_dir,
             &visible,

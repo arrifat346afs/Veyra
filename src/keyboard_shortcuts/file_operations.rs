@@ -69,6 +69,7 @@ pub(super) fn handle(
             "f5" => Some(Command::Reload),
             "delete" => Some(Command::Trash),
             "enter" => Some(Command::Open),
+            "space" => Some(Command::Preview),
             _ => None,
         }
     } else {

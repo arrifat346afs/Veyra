@@ -20,6 +20,7 @@ pub enum Command {
     Terminal,
     Open,
     ChooseApplication,
+    Preview,
     Properties,
     Copy,
     Cut,
@@ -50,7 +51,7 @@ pub fn run(
         match command {
             Command::Open => {crate::picker::accept(state,window,cx); return;}
             Command::SelectAll if !picker.request.multiple => return,
-            Command::SelectAll | Command::Reload | Command::Hidden | Command::Bookmark => {}
+            Command::SelectAll | Command::Reload | Command::Hidden | Command::Bookmark | Command::Preview => {}
             _ => return,
         }
     }
@@ -196,6 +197,7 @@ pub fn run(
                 }
             }
         }
+        Command::Preview => crate::windows::quick_preview::toggle(state,window,cx),
         Command::ChooseApplication => {
             let paths = targets(state);
             super::application_chooser::open(state,paths,window,cx);

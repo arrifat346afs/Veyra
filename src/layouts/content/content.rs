@@ -63,7 +63,9 @@ pub fn content(
         } else if entries.is_empty() {
             div().px(px(20.0)).py(px(16.0)).text_color(palette.muted_foreground).child("This folder is empty.").into_any_element()
         } else {
-            div().flex_1().w_full().overflow_y_scrollbar().child(
+            div().id("file-scroll").flex_1().min_h(px(0.)).w_full()
+                .overflow_y_scroll().track_scroll(&selection.scroll)
+                .vertical_scrollbar(&selection.scroll).child(
                 div().w_full().flex().flex_wrap().content_start().gap(px(spacing)).p(px(18.0)).children(entry_tiles)
             ).h_full().into_any_element()
         }).into_any_element();

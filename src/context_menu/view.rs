@@ -93,6 +93,7 @@ fn attach_to(
             .separator();
         if path.is_some() {
             menu = menu
+                .item(item("Quick preview",IconName::Eye,Command::Preview,owner.clone()).disabled(count != 1 || path.as_ref().is_some_and(|p| !p.is_file())))
                 .item(item("Cut", IconName::Scissors, Command::Cut, owner.clone()))
                 .item(item("Copy", IconName::Copy, Command::Copy, owner.clone()))
                 .item(

@@ -7,6 +7,9 @@ pub struct Geometry {
 }
 #[derive(Default)]
 pub struct Selection {
+    pub visible: Vec<PathBuf>,
+    pub cursor: Option<PathBuf>,
+    pub scroll: ScrollHandle,
     pub selected: HashSet<PathBuf>,
     pub geometry: Rc<RefCell<Geometry>>,
     pub drag: Option<(Point<Pixels>, Point<Pixels>)>,

@@ -21,6 +21,7 @@ pub fn item(tile: Stateful<Div>, path: PathBuf, selection: &Selection, picker: b
         .hover(move |style| style.bg(hover_color))
         .on_mouse_down(MouseButton::Left,cx.listener(move |state,event: &MouseDownEvent,window,cx| {
             state.focus.focus(window,cx);
+            state.selection.cursor = Some(path.clone());
             if state.picker.as_ref().is_none_or(|p| p.request.multiple) && (event.modifiers.control || event.modifiers.shift) {
                 if !state.selection.selected.insert(path.clone()) {state.selection.selected.remove(&path);}
             } else {

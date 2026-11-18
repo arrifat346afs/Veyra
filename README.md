@@ -11,6 +11,8 @@ A file manager for Linux, built in Rust with [GPUI](https://www.gpui.rs/) and
 - File and folder creation, rename, copy, cut/move, paste, trash, and permanent delete
 - Open files in their default application for reading and editing
 - Open with a searchable popup of installed applications, with compatible apps first
+- Veyra-owned Space-bar Quick Preview with image zoom and document page navigation;
+  DOCX text fallback when LibreOffice is unavailable
 - Sidebar with home places and persistent bookmarks
 - Bookmark folders from their context menu or by dragging them onto the sidebar
 - Breadcrumb navigation with back/forward history
@@ -34,6 +36,10 @@ A file manager for Linux, built in Rust with [GPUI](https://www.gpui.rs/) and
 - GLib/GIO development libraries (`glib2` on Arch, `libglib2.0-dev` on Debian/Ubuntu)
   for installed application discovery and launching
 - `gio` (GLib utilities) for desktop trash support
+- Optional: Poppler (`poppler` on Arch, `poppler-utils` on Debian/Ubuntu) for PDF
+  and formatted document previews
+- Optional: LibreOffice (native or Flatpak) for formatted Word/Office previews;
+  DOCX text previews also work without it
 - Optional: `ffmpegthumbnailer` or another freedesktop thumbnailer for video and
   document previews
 
@@ -57,7 +63,12 @@ The binary is written to `target/release/veyra`.
 | `F2` | Rename the selected item |
 | `Delete` | Move selected items to trash |
 | `Shift+Delete` | Permanently delete selected items, with confirmation |
+| Arrow keys | Move selection in the file grid or list |
+| `Home` / `End` | Select the first / last visible item |
+| `Backspace` | Go to the parent folder |
+| `Alt+Left` / `Alt+Right` | Go back / forward in folder history |
 | `Enter` | Open selected items |
+| `Space` | Quick Preview of the selected file; Space/Escape closes the preview |
 | `F5` / `Ctrl+R` | Reload the current directory |
 | `Ctrl+H` | Toggle hidden files (dotfiles) |
 | `Ctrl+,` | Open settings |
@@ -158,3 +169,23 @@ cargo run -- --pick-file --directory
 
 Portal integration follows the upstream [FileChooser backend interface](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.FileChooser.html)
 and [backend configuration](https://flatpak.github.io/xdg-desktop-portal/docs/portals.conf.html).
+
+## Quick Preview
+
+Select one file and press **Space**, or choose **Quick preview** from its context
+menu. Every preview opens in Veyra's own themed window. Space or Escape closes it;
+text fields continue to accept spaces normally. Previews never change your files
+or default applications.
+
+Images (including SVG) support zoom and Fit controls. PDF pages render with
+Poppler and have Previous/Next controls; Left/Right also change pages. Word and
+other Office documents can be converted to page previews using headless
+LibreOffice with an isolated temporary profile. All rendering happens in the
+background, and generated files are removed when the preview closes.
+
+DOCX/DOCM files fall back to a read-only text view if LibreOffice is unavailable
+or conversion fails. That view includes paragraphs and table text but omits
+formatting and embedded images. Plain text, code, and extensionless text files
+also have a native text preview. Video files can show a still frame when FFmpeg
+is installed; playback is available through Open file. Other file types show
+file details or a clear missing-renderer message in the same preview window.
