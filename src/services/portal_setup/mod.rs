@@ -58,7 +58,15 @@ impl Environment {
             managed_dir: std::env::var_os("XDG_DESKTOP_PORTAL_DIR")
                 .filter(|v| !v.is_empty())
                 .map(PathBuf::from),
-            executable: std::env::current_exe().map_err(|e| e.to_string())?,
+            executable: std::env::var_os("APPIMAGE")
+                .map(PathBuf::from)
+                .filter(|path| {
+                    fs::metadata(path).is_ok_and(|metadata| {
+                        metadata.is_file() && metadata.permissions().mode() & 0o111 != 0
+                    })
+                })
+                .map(Ok)
+                .unwrap_or_else(|| std::env::current_exe().map_err(|e| e.to_string()))?,
         })
     }
     fn use_frontend_environment(&mut self, pid: u32) {

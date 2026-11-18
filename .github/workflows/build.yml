@@ -62,6 +62,24 @@ jobs:
           cd dist
           sha256sum veyra-linux-x86_64.tar.gz > veyra-linux-x86_64.tar.gz.sha256
 
+      - name: Package AppImage
+        run: |
+          version=$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["package"]["version"])')
+          mkdir -p tools
+          wget -q -O tools/linuxdeploy-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x tools/linuxdeploy-x86_64.AppImage
+          mkdir -p AppDir/usr/bin
+          install -m755 target/release/veyra AppDir/usr/bin/veyra
+          APPIMAGE_EXTRACT_AND_RUN=1 ./tools/linuxdeploy-x86_64.AppImage \
+            --appdir AppDir \
+            --executable AppDir/usr/bin/veyra \
+            --desktop-file integration/veyra.desktop \
+            --icon-file icons/hicolor/512x512/apps/veyra.png \
+            --output appimage
+          mv ./*.AppImage "dist/Veyra-${version}-x86_64.AppImage"
+          cd dist
+          sha256sum "Veyra-${version}-x86_64.AppImage" > Veyra-${version}-x86_64.AppImage.sha256
+
       - name: Upload application
         uses: actions/upload-artifact@v6
         with:
@@ -69,6 +87,8 @@ jobs:
           path: |
             dist/veyra-linux-x86_64.tar.gz
             dist/veyra-linux-x86_64.tar.gz.sha256
+            dist/*.AppImage
+            dist/*.AppImage.sha256
           if-no-files-found: error
           retention-days: 30
           compression-level: 0
@@ -129,6 +149,7 @@ jobs:
         working-directory: dist
         run: |
           sha256sum -c veyra-linux-x86_64.tar.gz.sha256
+          sha256sum -c *.AppImage.sha256
           sha256sum -c veyra-arch-x86_64.pkg.tar.zst.sha256
 
       - name: Create release or update assets
@@ -142,12 +163,16 @@ jobs:
             gh release upload "$RELEASE_TAG" \
               dist/veyra-linux-x86_64.tar.gz \
               dist/veyra-linux-x86_64.tar.gz.sha256 \
+              dist/*.AppImage \
+              dist/*.AppImage.sha256 \
               dist/*.pkg.tar.zst \
               dist/veyra-arch-x86_64.pkg.tar.zst.sha256 --clobber
           else
             gh release create "$RELEASE_TAG" \
               dist/veyra-linux-x86_64.tar.gz \
               dist/veyra-linux-x86_64.tar.gz.sha256 \
+              dist/*.AppImage \
+              dist/*.AppImage.sha256 \
               dist/*.pkg.tar.zst \
               dist/veyra-arch-x86_64.pkg.tar.zst.sha256 \
               --target "$RELEASE_COMMIT" --generate-notes --title "Veyra $RELEASE_TAG"

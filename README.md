@@ -61,7 +61,16 @@ manual runs. Pushes to `main` do not start a build. The manual run button
 becomes available once the workflow is on the repository's default branch.
 
 When the run succeeds, download **veyra-linux-x86_64** from its **Artifacts**
-section. Unzip the download, then extract and run the application:
+section. The artifact contains a `.tar.gz` archive and an AppImage. Make the
+AppImage executable and run it directly:
+
+```sh
+chmod +x Veyra-*-x86_64.AppImage
+./Veyra-*-x86_64.AppImage
+```
+
+Or unzip the artifact and extract the `.tar.gz` archive to run the standalone
+binary:
 
 ```sh
 sha256sum -c veyra-linux-x86_64.tar.gz.sha256
@@ -92,11 +101,10 @@ Pull requests build the app and upload a workflow artifact. Pushes to `main`
 do not trigger builds. To publish a GitHub Release, manually run **Build Linux**
 from the Actions page.
 That manual run publishes a `v`-prefixed package version (for example,
-`v0.1.0`), the application archive, and an Arch package (`.pkg.tar.zst`), with
-SHA-256 checksums. The workflow
-reads the version from `Cargo.toml`; update that version when you want to
-publish a new release. Manual builds for the same version update that
-release's assets.
+`v0.1.0`), the application archive, an AppImage, and an Arch package
+(`.pkg.tar.zst`), with SHA-256 checksums. The workflow reads the version from
+`Cargo.toml`; update that version when you want to publish a new release.
+Manual builds for the same version update that release's assets.
 
 For a named version release, push a version tag instead:
 
@@ -106,10 +114,11 @@ git push origin v0.1.0
 ```
 
 The workflow uses the version tag as the release tag when building a tag.
-Releases include generated release notes, `veyra-linux-x86_64.tar.gz`, the
-Arch package, and their SHA-256 checksums. Download these files directly from the repository's
-**Releases** page, then use the extraction commands above. Release assets do
-not have the workflow artifacts' 30-day expiry.
+Releases include generated release notes, `veyra-linux-x86_64.tar.gz`, an
+AppImage, the Arch package, and their SHA-256 checksums. Download the AppImage
+from the repository's **Releases** page, mark it executable, and run it. The
+other assets are also available there. Release assets do not have the workflow
+artifacts' 30-day expiry.
 
 You can also run **Build Linux** manually against an existing `v*` tag to
 publish it. Rerunning a workflow run replaces the matching assets on its
