@@ -165,6 +165,22 @@ impl QuickPreview {
         cx.notify();
     }
 }
+/// Use the same raised foreground surface as the file manager's controls.
+fn preview_button(id: &'static str, cx: &App) -> Button {
+    let palette = cx.theme();
+    Button::new(id)
+        .custom(
+            ButtonCustomVariant::new(cx)
+                .color(palette.muted)
+                .foreground(palette.foreground)
+                .hover(palette.list_hover)
+                .active(palette.muted)
+                .shadow(false),
+        )
+        .border_0()
+        .rounded(palette.radius)
+}
+
 impl Render for QuickPreview {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.theme().clone();
@@ -180,12 +196,13 @@ impl Render for QuickPreview {
             _ => "",
         };
         let body = if let Some(image) = &self.page_image {
-            let width = (f32::from(window.viewport_size().width) - 32.).max(200.);
-            let height = (f32::from(window.viewport_size().height) - 150.).max(140.);
+            let width = (f32::from(window.viewport_size().width) - 40.).max(200.);
+            let height = (f32::from(window.viewport_size().height) - 124.).max(140.);
             let image_width = width * self.zoom;
             let image_height = height * self.zoom;
             div()
                 .id("preview-image-scroll")
+                .px(px(20.))
                 .flex_1()
                 .min_h(px(0.))
                 .min_w(px(0.))
@@ -272,40 +289,45 @@ impl Render for QuickPreview {
                     .flex()
                     .items_center()
                     .gap(px(10.))
-                    .p(px(12.))
-                    .border_b_1()
-                    .border_color(palette.border)
+                    .px(px(20.))
+                    .py(px(14.))
                     .child(
-                        div().flex_1().min_w(px(0.)).text_ellipsis().child(
-                            self.path
-                                .file_name()
-                                .unwrap_or_default()
-                                .to_string_lossy()
-                                .to_string(),
-                        ),
+                        div()
+                            .flex_1()
+                            .min_w(px(0.))
+                            .flex()
+                            .flex_col()
+                            .gap(px(3.))
+                            .child(
+                                div().text_size(px(14.)).text_ellipsis().child(
+                                    self.path
+                                        .file_name()
+                                        .unwrap_or_default()
+                                        .to_string_lossy()
+                                        .to_string(),
+                                ),
+                            )
+                            .when(!description.is_empty(), |title| {
+                                title.child(
+                                    div()
+                                        .text_size(px(12.))
+                                        .text_color(palette.muted_foreground)
+                                        .text_ellipsis()
+                                        .child(description.to_owned()),
+                                )
+                            }),
                     )
                     .child(
-                        Button::new("open-preview-original")
+                        preview_button("open-preview-original", cx)
                             .label("Open file")
                             .on_click(move |_, _, cx| cx.open_with_system(&path)),
                     )
                     .child(
-                        Button::new("close-preview")
+                        preview_button("close-preview", cx)
                             .label("Close")
                             .on_click(|_, window, _| window.remove_window()),
                     ),
             )
-            .when(!description.is_empty(), |view| {
-                view.child(
-                    div()
-                        .flex_shrink_0()
-                        .px(px(16.))
-                        .py(px(8.))
-                        .text_size(px(12.))
-                        .text_color(palette.muted_foreground)
-                        .child(description.to_owned()),
-                )
-            })
             .children(self.error.as_ref().map(|error| {
                 div()
                     .flex_shrink_0()
@@ -315,73 +337,76 @@ impl Render for QuickPreview {
                     .child(error.clone())
             }))
             .child(body)
-            .child(
-                div()
-                    .flex_shrink_0()
-                    .h(px(48.))
-                    .px(px(12.))
-                    .flex()
-                    .items_center()
-                    .gap(px(8.))
-                    .border_t_1()
-                    .border_color(palette.border)
-                    .when(
-                        matches!(self.content, Some(Content::Document { .. })),
-                        |bar| {
+            .when(self.page_image.is_some() || self.busy, |view| {
+                view.child(
+                    div()
+                        .flex_shrink_0()
+                        .h(px(54.))
+                        .px(px(20.))
+                        .pb(px(12.))
+                        .flex()
+                        .items_center()
+                        .gap(px(8.))
+                        .when(
+                            matches!(self.content, Some(Content::Document { .. })),
+                            |bar| {
+                                bar.child(
+                                    preview_button("preview-previous-page", cx)
+                                        .label("Previous")
+                                        .disabled(self.page <= 1 || self.busy)
+                                        .on_click(cx.listener(|view, _, _, cx| {
+                                            view.page(view.page.saturating_sub(1), cx)
+                                        })),
+                                )
+                                .child(
+                                    div()
+                                        .text_size(px(12.))
+                                        .child(format!("Page {} of {}", self.page, pages)),
+                                )
+                                .child(
+                                    preview_button("preview-next-page", cx)
+                                        .label("Next")
+                                        .disabled(self.page >= pages || self.busy)
+                                        .on_click(cx.listener(|view, _, _, cx| {
+                                            view.page(view.page + 1, cx)
+                                        })),
+                                )
+                            },
+                        )
+                        .child(div().flex_1())
+                        .when(self.page_image.is_some(), |bar| {
                             bar.child(
-                                Button::new("preview-previous-page")
-                                    .label("Previous")
-                                    .disabled(self.page <= 1 || self.busy)
+                                preview_button("preview-zoom-out", cx)
+                                    .label("−")
+                                    .disabled(self.zoom <= 0.25)
+                                    .on_click(
+                                        cx.listener(|view, _, _, cx| view.zoom(1. / 1.25, cx)),
+                                    ),
+                            )
+                            .child(
+                                preview_button("preview-fit", cx)
+                                    .label(format!("{}% · Fit", (self.zoom * 100.).round() as u32))
                                     .on_click(cx.listener(|view, _, _, cx| {
-                                        view.page(view.page.saturating_sub(1), cx)
+                                        view.zoom = 1.;
+                                        cx.notify();
                                     })),
                             )
                             .child(
+                                preview_button("preview-zoom-in", cx)
+                                    .label("+")
+                                    .disabled(self.zoom >= 4.)
+                                    .on_click(cx.listener(|view, _, _, cx| view.zoom(1.25, cx))),
+                            )
+                        })
+                        .when(self.busy, |bar| {
+                            bar.child(
                                 div()
                                     .text_size(px(12.))
-                                    .child(format!("Page {} of {}", self.page, pages)),
+                                    .text_color(palette.muted_foreground)
+                                    .child("Loading…"),
                             )
-                            .child(
-                                Button::new("preview-next-page")
-                                    .label("Next")
-                                    .disabled(self.page >= pages || self.busy)
-                                    .on_click(
-                                        cx.listener(|view, _, _, cx| view.page(view.page + 1, cx)),
-                                    ),
-                            )
-                        },
-                    )
-                    .child(div().flex_1())
-                    .when(self.page_image.is_some(), |bar| {
-                        bar.child(
-                            Button::new("preview-zoom-out")
-                                .label("−")
-                                .disabled(self.zoom <= 0.25)
-                                .on_click(cx.listener(|view, _, _, cx| view.zoom(1. / 1.25, cx))),
-                        )
-                        .child(
-                            Button::new("preview-fit")
-                                .label(format!("{}% · Fit", (self.zoom * 100.).round() as u32))
-                                .on_click(cx.listener(|view, _, _, cx| {
-                                    view.zoom = 1.;
-                                    cx.notify();
-                                })),
-                        )
-                        .child(
-                            Button::new("preview-zoom-in")
-                                .label("+")
-                                .disabled(self.zoom >= 4.)
-                                .on_click(cx.listener(|view, _, _, cx| view.zoom(1.25, cx))),
-                        )
-                    })
-                    .when(self.busy, |bar| {
-                        bar.child(
-                            div()
-                                .text_size(px(12.))
-                                .text_color(palette.muted_foreground)
-                                .child("Loading…"),
-                        )
-                    }),
-            )
+                        }),
+                )
+            })
     }
 }

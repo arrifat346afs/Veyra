@@ -53,6 +53,28 @@ cargo run --release
 
 The binary is written to `target/release/veyra`.
 
+### Build with GitHub Actions
+
+Push the workflow to GitHub, then open **Actions → Build Linux → Run workflow**
+and select the branch to build. The workflow also runs for pushes to `main`,
+tags beginning with `v`, and pull requests. The manual run button becomes
+available once the workflow is on the repository's default branch.
+
+When the run succeeds, download **veyra-linux-x86_64** from its **Artifacts**
+section. Unzip the download, then extract and run the application:
+
+```sh
+sha256sum -c veyra-linux-x86_64.tar.gz.sha256
+tar -xzf veyra-linux-x86_64.tar.gz
+cd veyra-linux-x86_64
+./veyra
+```
+
+The archive includes the release binary and the portal integration scripts.
+It targets x86_64 Linux and is built on Ubuntu 24.04; it requires compatible
+system libraries and the runtime requirements above. It does not bundle those
+libraries. Downloads are retained for 30 days.
+
 ## Keyboard shortcuts
 
 | Shortcut | Action |

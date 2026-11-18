@@ -1,0 +1,68 @@
+name: Build Linux
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-linux-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Linux x86_64 release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential clang cmake pkg-config \
+            libglib2.0-dev libfontconfig1-dev libfreetype6-dev \
+            libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev \
+            libx11-dev libx11-xcb-dev libxcb1-dev \
+            libxcb-shape0-dev libxcb-xfixes0-dev libvulkan-dev
+
+      - name: Install stable Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Build release binary
+        run: cargo build --release --locked --jobs 2
+
+      - name: Package application
+        run: |
+          mkdir -p dist/veyra-linux-x86_64
+          install -m755 target/release/veyra dist/veyra-linux-x86_64/veyra
+          cp README.md dist/veyra-linux-x86_64/
+          cp -r integration scripts dist/veyra-linux-x86_64/
+          tar -czf dist/veyra-linux-x86_64.tar.gz -C dist veyra-linux-x86_64
+          cd dist
+          sha256sum veyra-linux-x86_64.tar.gz > veyra-linux-x86_64.tar.gz.sha256
+
+      - name: Upload application
+        uses: actions/upload-artifact@v6
+        with:
+          name: veyra-linux-x86_64
+          path: |
+            dist/veyra-linux-x86_64.tar.gz
+            dist/veyra-linux-x86_64.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
