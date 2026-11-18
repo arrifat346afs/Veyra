@@ -13,7 +13,7 @@ pub fn rows(items: Vec<Setting>, query: &str, foreground_opacity: usize, cx: &mu
         return div().p(px(20.)).text_color(palette.muted_foreground).child("No settings match your search.").into_any_element();
     }
     div().flex().flex_col().gap(px(12.)).children(items.into_iter().filter(|s| format!("{} {}",s.title,s.description).to_lowercase().contains(query)).map(|s| {
-        div().flex().items_center().justify_between().gap(px(24.)).p(px(18.)).rounded(px(12.)).bg(palette.muted.opacity(foreground_opacity.min(100) as f32 / 100.))
+        div().flex().items_center().justify_between().gap(px(24.)).p(px(18.)).rounded(cx.theme().radius).bg(palette.muted.opacity(foreground_opacity.min(100) as f32 / 100.))
             .child(div().flex_1().flex().flex_col().gap(px(6.)).child(s.title)
                 .child(div().text_size(px(12.)).text_color(palette.muted_foreground).child(s.description)))
             .child(match s.control {

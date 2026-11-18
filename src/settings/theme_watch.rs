@@ -62,7 +62,10 @@ pub fn start(cx: &mut Context<MainWindow>) -> Task<()> {
                     match parse(contents) {
                         Ok(config) => {
                             let config = Rc::new(config);
-                            Theme::update(cx, |theme| theme.apply_config(&config));
+                            Theme::update(cx, |theme| {
+                                theme.apply_config(&config);
+                                super::rounding::configure(theme, state.preferences.corner_radius);
+                            });
                             state.theme_error = None;
                         }
                         // Keep the last valid palette during partial writes, missing

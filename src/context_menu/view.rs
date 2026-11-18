@@ -8,14 +8,26 @@ use gpui_kit::component::{
 use gpui_kit::*;
 use gpui_kit_assets::IconName;
 
+// Native popup rows default to 26px. Custom labels and matching icon margins
+// give command rows and submenu triggers the same comfortable 36px height.
+fn label(label: &'static str) -> PopupMenuItem {
+    PopupMenuItem::element(move |_, _| {
+        div().id(label).h(px(36.)).pr(px(8.)).flex().items_center().aria_label(label).child(label)
+    })
+}
+
+fn icon(name: IconName) -> Icon {
+    Icon::new(name).mx(px(4.)).my(px(12.))
+}
+
 fn item(
     label: &'static str,
-    icon: IconName,
+    icon_name: IconName,
     command: Command,
     owner: WeakEntity<MainWindow>,
 ) -> PopupMenuItem {
-    PopupMenuItem::new(label)
-        .icon(Icon::new(icon))
+    self::label(label)
+        .icon(icon(icon_name))
         .on_click(move |_, window, cx| {
             let _ = owner.update(cx, |state, cx| actions::run(command, state, window, cx));
         })
@@ -59,7 +71,7 @@ fn attach_to(
             .upgrade()
             .is_some_and(|state| state.read(cx).file_operation_busy);
         if busy {
-            return menu.item(PopupMenuItem::new("Working…").disabled(true));
+            return menu.min_w(px(252.)).item(label("Working…").disabled(true));
         }
         let paste_enabled = cx
             .read_from_clipboard()
@@ -70,7 +82,7 @@ fn attach_to(
             .is_some_and(|state| state.read(cx).show_hidden);
         let document_owner = owner.clone();
         let open_owner = owner.clone();
-        let mut menu = menu.min_w(px(215.));
+        let mut menu = menu.min_w(px(252.));
         if path.is_some() {
             menu = menu
                 .item(item(
@@ -100,6 +112,10 @@ fn attach_to(
                 ))
                 .separator();
         }
+        if path.as_ref().is_some_and(|path| path.is_dir()) {
+            menu = menu.item(item("Add to bookmarks", IconName::Bookmark, Command::Bookmark, owner.clone()))
+                .separator();
+        }
         menu.item(item(
             "New folder",
             IconName::FolderPlus,
@@ -107,12 +123,12 @@ fn attach_to(
             owner.clone(),
         ))
         .submenu_with_icon(
-            Some(Icon::new(IconName::FilePlus)),
+            Some(icon(IconName::FilePlus)),
             "New document",
             window,
             cx,
             move |menu, _, _| {
-                menu.item(item(
+                menu.min_w(px(252.)).item(item(
                     "Empty text document",
                     IconName::FilePlus,
                     Command::NewDocument,
@@ -162,12 +178,12 @@ fn attach_to(
             owner.clone(),
         ))
         .submenu_with_icon(
-            Some(Icon::new(IconName::AppWindow)),
+            Some(icon(IconName::AppWindow)),
             "Open with",
             window,
             cx,
             move |menu, _, _| {
-                menu.item(item(
+                menu.min_w(px(252.)).item(item(
                     "Default application",
                     IconName::ExternalLink,
                     Command::Open,

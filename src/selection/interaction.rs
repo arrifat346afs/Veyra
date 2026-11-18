@@ -37,6 +37,7 @@ pub fn item(tile: Stateful<Div>, path: PathBuf, selection: &Selection, cx: &mut 
 pub fn area(body: AnyElement, selection: &Selection, cx: &mut Context<MainWindow>) -> AnyElement {
     let geometry=selection.geometry.clone();
     let drag=selection.drag;
+    let radius=cx.theme().radius;
     let color=cx.theme().primary;
     let area = div().id("selection-area").relative().flex_1().min_h(px(0.)).w_full().overflow_hidden()
         .on_mouse_down(MouseButton::Left,cx.listener(|state,event: &MouseDownEvent,window,cx| {
@@ -59,7 +60,7 @@ pub fn area(body: AnyElement, selection: &Selection, cx: &mut Context<MainWindow
         // rather than starting after the full-height content child.
         .child(canvas(move |bounds,_,_| {geometry.borrow_mut().viewport=bounds;},move |_,_,window,_| {
             if let Some((start,end))=drag {
-                window.paint_quad(quad(rectangle(start,end),px(2.),color.opacity(0.12),px(1.),color,BorderStyle::Solid));
+                window.paint_quad(quad(rectangle(start,end),radius,color.opacity(0.12),px(1.),color,BorderStyle::Solid));
             }
         }).absolute().inset_0().size_full())
 ;

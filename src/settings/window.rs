@@ -2,7 +2,7 @@
 use crate::windows::MainWindow;
 use gpui_kit::*;
 
-const WIDTH: f32 = 880.;
+const WIDTH: f32 = 900.;
 const HEIGHT: f32 = 600.;
 
 pub fn open(_state: &mut MainWindow, cx: &mut Context<MainWindow>) {

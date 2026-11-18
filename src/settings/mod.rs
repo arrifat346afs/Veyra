@@ -14,3 +14,5 @@ pub mod sliders;
 
 mod toggle;
 mod choice;
+
+pub mod rounding;

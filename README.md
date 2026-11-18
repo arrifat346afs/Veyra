@@ -11,6 +11,7 @@ A file manager for Linux, built in Rust with [GPUI](https://www.gpui.rs/) and
 - File and folder creation, rename, copy, cut/move, paste, trash, and permanent delete
 - Open files in their default application for reading and editing
 - Sidebar with home places and persistent bookmarks
+- Bookmark folders from their context menu or by dragging them onto the sidebar
 - Breadcrumb navigation with back/forward history
 - Live filtering of the current folder, with an optional case-sensitive mode
 - Sorting by name, size, modified time, or type; folders-first option
@@ -18,6 +19,7 @@ A file manager for Linux, built in Rust with [GPUI](https://www.gpui.rs/) and
 - Dark/light and custom JSON themes with live reload when the theme file changes
 - Folder icons follow the theme accent while preserving their shading and symbols
 - Window, sidebar, and surface opacity sliders
+- Shared corner-radius slider for controls, menus, hover highlights, and drag selections
 - Searchable settings in a separate fixed-size window, persisted across launches
 
 ## Requirements
@@ -89,5 +91,5 @@ src/
 
 ## Status
 
-Early development. Drive mounting, removable media, network shares, file
-operations (copy/move/delete), and drag-and-drop are not implemented yet.
+Early development. Drive mounting, removable media, network shares, and
+drag-and-drop file moves are not implemented yet.

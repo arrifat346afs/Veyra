@@ -148,7 +148,7 @@ pub fn view(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
                 .overflow_y_scroll()
                 .max_w(relative(0.94))
                 .p(px(22.))
-                .rounded(px(12.))
+                .rounded(cx.theme().radius)
                 .border_1()
                 .border_color(palette.border)
                 .bg(palette.popover)

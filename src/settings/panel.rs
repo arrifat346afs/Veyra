@@ -13,12 +13,12 @@ pub fn panel(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
     } else { super::controls::rows(rows,&query,state.preferences.sidebar_opacity,cx) };
     let body = div().flex().flex_col().gap(px(12.)).child(body)
         .children((state.settings_page == 1 || !query.is_empty()).then(|| super::sliders::rows(state,&query,cx)));
-    div().size_full().flex().text_color(palette.foreground)
+    div().size_full().rounded(palette.radius).overflow_hidden().flex().text_color(palette.foreground)
         .child(div().w(px(200.)).flex_shrink_0().h_full().flex().flex_col().gap(px(4.)).p(px(12.)).bg(palette.muted.opacity(state.preferences.foreground_alpha()))
             .child(div().mb(px(8.)).child(Input::new(&state.settings_search)))
             .children(titles.into_iter().enumerate().map(|(i,title)| {
                 let selected = state.settings_page == i && query.is_empty();
-                div().id(format!("settings-page-{i}")).h(px(34.)).flex_shrink_0().flex().items_center().px(px(10.)).rounded(px(6.)).text_size(px(14.)).cursor_pointer()
+                div().id(format!("settings-page-{i}")).h(px(34.)).flex_shrink_0().flex().items_center().px(px(10.)).rounded(cx.theme().radius).text_size(px(14.)).cursor_pointer()
                     .when(selected, |row| row.bg(palette.primary.opacity(0.16)))
                     .text_color(if selected {palette.primary} else {palette.foreground})
                     .hover(|style| style.bg(if selected {palette.primary.opacity(0.22)} else {palette.list_hover.opacity(state.preferences.foreground_alpha())}))
@@ -28,12 +28,12 @@ pub fn panel(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
         .child(div().flex_1().min_w(px(0.)).h_full().flex().flex_col().bg(palette.background.opacity(state.preferences.window_opacity.min(100) as f32 / 100.)).p(px(20.)).gap(px(20.))
             .child(div().flex().justify_between().items_center()
                 .child(div().text_size(px(24.)).child(if query.is_empty() {titles[state.settings_page]} else {"Search results"}))
-                .child(div().id("close-settings").cursor_pointer().px(px(14.)).py(px(8.)).rounded(px(8.)).bg(palette.muted.opacity(state.preferences.foreground_alpha())).child("Close")
+                .child(div().id("close-settings").cursor_pointer().px(px(14.)).py(px(8.)).rounded(cx.theme().radius).bg(palette.muted.opacity(state.preferences.foreground_alpha())).child("Close")
                     .on_click(cx.listener(|_,_,window,_| {window.remove_window();}))))
         .children(state.settings_error.clone().or_else(||state.theme_error.clone()).map(|error| div().text_color(palette.danger_foreground).child(error)))
             .child(div().flex_1().min_h(px(0.)).overflow_y_scrollbar().child(body)
                 .when(state.settings_page == 1 && query.is_empty(), |el| el.child(
-                    div().mt(px(20.)).p(px(18.)).rounded(px(12.)).bg(palette.muted.opacity(state.preferences.foreground_alpha()))
+                    div().mt(px(20.)).p(px(18.)).rounded(cx.theme().radius).bg(palette.muted.opacity(state.preferences.foreground_alpha()))
                         .flex().flex_col().gap(px(10.))
                         .child("Custom theme JSON")
                         .child(div().text_size(px(12.)).text_color(palette.muted_foreground).child("Load a GPUI Kit theme or Noctalia/Matugen palette. File changes apply automatically."))

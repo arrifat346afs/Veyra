@@ -9,6 +9,7 @@ use gpui_kit::*;
 use std::path::PathBuf;
 #[derive(Clone, Copy)]
 pub enum Command {
+    Bookmark,
     NewFolder,
     NewDocument,
     Paste,
@@ -49,6 +50,11 @@ pub fn run(
         return;
     }
     match command {
+        Command::Bookmark => {
+            for path in selected(state).into_iter().filter(|path| path.is_dir()) {
+                if !bookmark(&path, state, window, cx) { break; }
+            }
+        }
         Command::NewFolder | Command::NewDocument => {
             let folder = matches!(command, Command::NewFolder);
             dialog::show(
@@ -310,4 +316,16 @@ pub fn perform(
         });
     })
     .detach();
+}
+
+/// Shared by the folder menu and sidebar drop target. Saving a shortcut never
+/// moves or copies the folder; failures are shown in the existing error dialog.
+pub fn bookmark(path: &std::path::Path, state: &mut MainWindow, window: &mut Window, cx: &mut Context<MainWindow>) -> bool {
+    match crate::services::bookmarks::add_bookmark(path) {
+        Ok(()) => { cx.notify(); true }
+        Err(error) => {
+            message(state, "Could not add bookmark", error.to_string(), window, cx);
+            false
+        }
+    }
 }

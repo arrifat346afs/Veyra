@@ -37,7 +37,11 @@ pub fn content(
             .is_some_and(|ext| ext.eq_ignore_ascii_case("appimage"));
         let tile = div().id(format!("entry-{}", entry.display())).w(px(icon_size+52.)).h(px(icon_size+76.))
             .flex().flex_col().items_center().justify_start().gap(px(8.0)).p(px(10.0))
-            .rounded(px(8.0)).text_color(palette.foreground).cursor_pointer()
+            .rounded(cx.theme().radius).text_color(palette.foreground).cursor_pointer()
+            .when(is_dir, |tile| tile.on_drag(
+                crate::components::folder_drag::FolderDrag { path: entry.clone() },
+                |drag, _, _, cx| { cx.stop_propagation(); cx.new(|_| drag.clone()) },
+            ))
             .when(list_view, |tile| tile.w_full().h(px(40.+spacing)).flex_row())
             .child(if is_dir {
                 crate::components::folder_icon::view(PathBuf::from(icon), if list_view {32.} else {icon_size}, cx)
@@ -52,7 +56,7 @@ pub fn content(
         crate::selection::item(tile, entry.clone(), selection, cx)
     }).collect();
 
-    let body = div().flex_1().h_full().flex().flex_col().bg(palette.background.opacity(preferences.window_opacity.min(100) as f32 / 100.))
+    let body = div().flex_1().min_h(px(0.)).min_w(px(0.)).h_full().flex().flex_col()
         .child(if let Some(error) = error {
             div().px(px(20.0)).py(px(16.0)).text_color(palette.danger_foreground).child(error.to_owned()).into_any_element()
         } else if entries.is_empty() {

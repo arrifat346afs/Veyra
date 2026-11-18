@@ -56,6 +56,7 @@ impl MainWindow {
             if !preferences.custom_theme_path.is_empty() {
                 if let Err(error) = crate::settings::theme::apply(&preferences.custom_theme_path, cx) { eprintln!("{error}"); }
             }
+            crate::settings::rounding::apply(preferences.corner_radius, cx);
             let current_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
             let current_dir = if preferences.home_start { std::env::var_os("HOME").map(PathBuf::from).unwrap_or(current_dir) } else { current_dir };
             let (entries, error) = read_directory(&current_dir);
@@ -131,6 +132,7 @@ impl MainWindow {
         } else {
             self.theme_error=crate::settings::theme::apply(&self.preferences.custom_theme_path,cx).err();
         }
+        crate::settings::rounding::apply(self.preferences.corner_radius, cx);
         self.settings_error=self.preferences.save().err();
         cx.notify();
     }
@@ -204,7 +206,8 @@ impl Render for MainWindow {
             if self.preferences.folders_first {b.is_dir().cmp(&a.is_dir()).then(order)} else {order}
         });
         let window_width = f32::from(_window.viewport_size().width);
-        let toolbar = topbar::topbar(self, visible.len(), window_width, cx);
+        let toolbar = topbar::topbar(self, cx);
+        let path_bar = crate::components::path_bar::view(self, cx);
         self.selection.geometry.borrow_mut().items.clear();
         self.selection.selected.retain(|path| visible.contains(path));
         let main_content = content::content(
@@ -217,11 +220,32 @@ impl Render for MainWindow {
             self.thumbnail_generation,
             cx,
         );
-        let mut body = div().flex().flex_1().min_h(px(0.));
-        if self.show_sidebar { body = body.child(sidebar::sidebar(&self.current_dir, self.preferences.sidebar_opacity, cx)); }
-        let mut root = div().relative().size_full().flex().flex_col().text_color(palette.foreground).child(toolbar).child(body.child(main_content));
+        // A shared navigation frame overlays the continuous file background.
+        let frame = crate::layouts::frame::Frame::default();
+        let workspace = div().flex_1().min_h(px(0.)).min_w(px(0.)).flex().flex_col()
+            .pr(px(12.)).pb(px(12.))
+            .child(div().relative().flex_1().min_h(px(0.)).min_w(px(0.)).flex().flex_col()
+                .child(frame.measure_pane())
+                .child(div().flex_1().min_h(px(0.)).min_w(px(0.)).flex().flex_col()
+                    .rounded(palette.radius).overflow_hidden()
+                    .child(path_bar).child(main_content)
+                    .child(div().id("directory-status").w_full().flex_shrink_0()
+                        .flex().justify_end().px(px(12.)).py(px(6.))
+                        .text_size(px(12.)).text_color(palette.muted_foreground)
+                        .child(format!("{} items", visible.len())))));
+        let mut body = div().flex().size_full().min_h(px(0.)).min_w(px(0.));
+        if self.show_sidebar {
+            body = body.child(sidebar::sidebar(&self.current_dir, cx));
+        } else {
+            body = body.pl(px(12.));
+        }
+        let mut root = div().relative().size_full().rounded(palette.radius).overflow_hidden().text_color(palette.foreground)
+            .bg(palette.muted.opacity(self.preferences.window_opacity.min(100) as f32 / 100.))
+            .child(frame.background(palette.background.opacity(self.preferences.foreground_alpha()), palette.radius))
+            .child(body.child(div().flex_1().min_w(px(0.)).h_full().flex().flex_col()
+                .child(toolbar).child(workspace)));
         if self.path_bar.editing { root = root.child(crate::components::path_bar::suggestions_overlay(self,window_width,cx)); }
-        if self.file_operation_busy && self.file_dialog.is_none() {root=root.child(div().absolute().bottom(px(16.)).right(px(16.)).p(px(12.)).rounded(px(8.)).bg(palette.popover).text_color(palette.popover_foreground).child("Working…"));}
+        if self.file_operation_busy && self.file_dialog.is_none() {root=root.child(div().absolute().bottom(px(16.)).right(px(16.)).p(px(12.)).rounded(cx.theme().radius).bg(palette.popover).text_color(palette.popover_foreground).child("Working…"));}
         if self.file_dialog.is_some() { root = root.child(crate::context_menu::dialog::view(self,cx)); }
         crate::keyboard_shortcuts::attach(root, &self.focus, cx)
     }

@@ -42,6 +42,9 @@ pub fn get_bookmarks() -> Vec<Bookmark> {
 
 /// Add a directory to the private list, skipping duplicates.
 pub fn add_bookmark(path: &Path) -> io::Result<()> {
+    if !path.is_dir() {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "Only existing folders can be bookmarked."));
+    }
     let path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
     let mut bookmarks = get_bookmarks();
     if bookmarks.iter().any(|bookmark| bookmark.path == path) { return Ok(()) }
