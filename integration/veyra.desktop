@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Veyra
+Comment=A file manager for Linux
+Exec=veyra
+Icon=veyra
+Terminal=false
+Categories=Utility;FileManager;
+StartupNotify=true
+StartupWMClass=veyra

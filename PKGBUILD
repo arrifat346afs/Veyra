@@ -26,6 +26,11 @@ build() {
 
 package() {
   install -Dm755 "$startdir/target/release/veyra" "$pkgdir/usr/bin/veyra"
+  install -Dm644 "$startdir/integration/veyra.desktop" "$pkgdir/usr/share/applications/veyra.desktop"
+  for size in 16 24 32 48 64 128 256 512; do
+    install -Dm644 "$startdir/icons/hicolor/${size}x${size}/apps/veyra.png" \
+      "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/veyra.png"
+  done
   install -Dm644 "$startdir/integration/veyra.portal" \
     "$pkgdir/usr/share/xdg-desktop-portal/portals/veyra.portal"
   sed 's|@BINARY@|/usr/bin/veyra|' \

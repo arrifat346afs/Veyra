@@ -75,6 +75,11 @@ It targets x86_64 Linux and is built on Ubuntu 24.04; it requires compatible
 system libraries and the runtime requirements above. It does not bundle those
 libraries. Workflow artifacts are retained for 30 days.
 
+To add Veyra to your desktop app menu with its icon, extract the archive and run
+`./scripts/install-desktop.sh`. This installs the binary to `~/.local/bin` and
+the launcher and icon to your user data directory. You can also run `./veyra`
+directly from the extracted folder.
+
 ### Publish a GitHub Release
 
 Pushes and pull requests build the app and upload a workflow artifact. To

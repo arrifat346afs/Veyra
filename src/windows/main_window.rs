@@ -52,7 +52,7 @@ pub struct MainWindow {
 
 impl MainWindow {
     pub fn open(picker_request: Option<crate::picker::Request>, cx: &mut App) {
-        cx.open_window(WindowOptions { window_background: WindowBackgroundAppearance::Transparent, ..WindowOptions::default() }, move |window, cx| {
+        cx.open_window(WindowOptions { app_id: Some("veyra".into()), window_background: WindowBackgroundAppearance::Transparent, ..WindowOptions::default() }, move |window, cx| {
             window.set_window_title(picker_request.as_ref().map(|r| r.title.as_str()).filter(|s| !s.is_empty()).unwrap_or("Veyra"));
             if picker_request.is_some() { window.on_window_should_close(cx, |_,cx| {cx.quit(); true}); }
             let (preferences, settings_error) = match crate::settings::preferences::Preferences::load() {

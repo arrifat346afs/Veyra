@@ -58,6 +58,7 @@ jobs:
           install -m755 target/release/veyra dist/veyra-linux-x86_64/veyra
           cp README.md dist/veyra-linux-x86_64/
           cp -r integration scripts dist/veyra-linux-x86_64/
+          cp -r icons dist/veyra-linux-x86_64/
           tar -czf dist/veyra-linux-x86_64.tar.gz -C dist veyra-linux-x86_64
           cd dist
           sha256sum veyra-linux-x86_64.tar.gz > veyra-linux-x86_64.tar.gz.sha256
