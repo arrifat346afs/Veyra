@@ -1,4 +1,6 @@
 pub mod preferences;
+pub mod theme;
+pub mod theme_watch;
 mod controls;
 mod general;
 mod appearance;

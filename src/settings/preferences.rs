@@ -7,15 +7,16 @@ pub struct Preferences {
     pub list_view: bool, pub show_hidden: bool, pub reverse_sort: bool,
     pub folders_first: bool, pub sort_by: usize, pub icon_size: usize,
     pub density: usize, pub filename_size: usize, pub show_sizes: bool,
-    pub single_click: bool, pub case_sensitive: bool, pub show_sidebar: bool,
+    pub case_sensitive: bool, pub show_sidebar: bool,
     pub light_theme: bool, pub home_start: bool,
+    pub custom_theme_path: String,
     pub window_opacity: usize, pub sidebar_opacity: usize,
 }
 impl Default for Preferences {
     fn default() -> Self { Self { show_thumbnails:true, list_view:false, show_hidden:false, reverse_sort:false,
         folders_first:true, sort_by:0, icon_size:112, density:1, filename_size:12,
-        show_sizes:true, single_click:true, case_sensitive:false, show_sidebar:true,
-        light_theme:false, home_start:false, window_opacity:100, sidebar_opacity:100 } }
+        show_sizes:true, case_sensitive:false, show_sidebar:true,
+        light_theme:false, home_start:false, custom_theme_path:String::new(), window_opacity:100, sidebar_opacity:100 } }
 }
 fn path() -> PathBuf {
     std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from)

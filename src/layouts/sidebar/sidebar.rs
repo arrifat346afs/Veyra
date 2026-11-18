@@ -14,6 +14,8 @@ use gpui_kit_assets::IconName;
 
 use crate::{services::bookmarks, windows::MainWindow};
 
+pub const WIDTH: f32 = 238.;
+
 /// Build the complete sidebar for the current window state.
 ///
 /// Built-in places are derived from the user's home directory. Bookmarks come
@@ -26,7 +28,7 @@ pub fn sidebar(current_dir: &Path, opacity: usize, cx: &mut Context<MainWindow>)
     // sidebar follows the active theme without embedding color values here.
     let palette = cx.theme().clone();
 
-    div().w(px(238.0)).h_full().flex().flex_col().gap(px(3.0))
+    div().w(px(WIDTH)).flex_shrink_0().h_full().flex().flex_col().gap(px(3.0))
         .px(px(12.0)).py(px(16.0)).bg(palette.muted.opacity(opacity.min(100) as f32 / 100.))
         .child(div().px(px(12.0)).pb(px(12.0)).text_color(palette.foreground).child("Places"))
         .child(location_row("Home", IconName::House, home.clone(), current_dir, cx))
@@ -64,7 +66,7 @@ pub fn sidebar(current_dir: &Path, opacity: usize, cx: &mut Context<MainWindow>)
                 .child(div().id(format!("bookmark-{}", bookmark.path.display())).flex_1().h_full()
                     .flex().items_center().gap(px(10.0)).px(px(12.0)).cursor_pointer()
                     .hover(|style| style.text_color(if selected {foreground} else {palette.primary}))
-                    .on_click(cx.listener(move |this, _, _, cx| this.navigate_to(target.clone(), cx)))
+                    .on_click(cx.listener(move |this, _, window, cx| this.navigate_to(target.clone(), window, cx)))
                     .child(div().w(px(18.0)).text_color(if selected {foreground} else {palette.muted_foreground})
                         .child(Icon::new(IconName::Bookmark).size(px(14.0))))
                     .child(div().text_ellipsis().child(bookmark.name)))
@@ -93,7 +95,7 @@ fn location_row(label: &'static str, icon: IconName, path: PathBuf,
         .when(selected, |row| row.bg(palette.primary))
         .hover(|style| style.bg(if selected {palette.primary} else {palette.primary.opacity(0.14)})
             .text_color(if selected {foreground} else {palette.primary}))
-        .on_click(cx.listener(move |this, _, _, cx| this.navigate_to(path.clone(), cx)))
+        .on_click(cx.listener(move |this, _, window, cx| this.navigate_to(path.clone(), window, cx)))
         .child(div().w(px(18.0)).text_color(if selected {foreground} else {palette.muted_foreground})
             .child(Icon::new(icon).size(px(16.0))))
         .child(div().text_ellipsis().child(label))

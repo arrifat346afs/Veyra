@@ -11,3 +11,7 @@ fn main() {
 mod selection;
 
 mod thumbnails;
+
+mod components;
+
+mod context_menu;

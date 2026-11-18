@@ -1,25 +1,39 @@
 //! App-owned thumbnail cache keyed by path, file size and modification time.
 use std::{collections::hash_map::DefaultHasher, fs, hash::{Hash, Hasher}, path::PathBuf, sync::atomic::{AtomicU64, Ordering}, time::UNIX_EPOCH};
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct Source {pub path: PathBuf, length: u64, modified: u128}
-impl Source {
-    pub fn new(path: PathBuf) -> Option<Self> {
+pub struct Source {pub path: PathBuf, generation: u64}
+#[derive(Hash, PartialEq, Eq)]
+struct Snapshot {path: PathBuf, length: u64, modified: u128}
+impl Snapshot {
+    fn read(path: &std::path::Path) -> Option<Self> {
         let metadata = path.metadata().ok()?;
         if !metadata.is_file() {return None;}
-        Some(Self {path, length: metadata.len(), modified: metadata.modified().ok()?.duration_since(UNIX_EPOCH).ok()?.as_nanos()})
+        Some(Self {path: path.to_path_buf(),length: metadata.len(),modified: metadata.modified().ok()?.duration_since(UNIX_EPOCH).ok()?.as_nanos()})
     }
     fn destination(&self) -> PathBuf {
         let base = std::env::var_os("XDG_CACHE_HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".cache"));
         let mut hash = DefaultHasher::new();self.hash(&mut hash);
         base.join("veyra/thumbnails/v1").join(format!("{:016x}.png",hash.finish()))
     }
+}
+impl Source {
+    /// Constructing an asset key never touches the filesystem. Its generation
+    /// changes on navigation, so a revisited folder checks files again.
+    pub fn new(path: PathBuf, generation: u64) -> Self {Self {path,generation}}
     pub fn generate(&self) -> Option<PathBuf> {
-        let destination = self.destination();
+        let snapshot = Snapshot::read(&self.path)?;
+        let destination = snapshot.destination();
         if valid(&destination) {return Some(destination);}
         fs::create_dir_all(destination.parent()?).ok()?;
         static SERIAL: AtomicU64 = AtomicU64::new(0);
         let temporary = destination.with_extension(format!("{}-{}.tmp.png",std::process::id(),SERIAL.fetch_add(1,Ordering::Relaxed)));
-        let mut success = native_image(&self.path,&temporary);
+        let is_appimage = self.path.extension().and_then(|ext| ext.to_str())
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("appimage"));
+        let mut success = if is_appimage {
+            super::appimage::generate(&self.path, &temporary)
+        } else {
+            native_image(&self.path,&temporary)
+        };
         if !success {
             for mime in mime_guess::from_path(&self.path).iter() {
                 for provider in super::providers::providers().iter().filter(|p| p.supports(mime.essence_str())) {
@@ -30,8 +44,8 @@ impl Source {
             }
         }
         // Do not publish a stale result if the source changed during generation.
-        let current = Source::new(self.path.clone());
-        if success && current.as_ref() == Some(self) && fs::rename(&temporary,&destination).is_ok() {Some(destination)}
+        let current = Snapshot::read(&self.path);
+        if success && current.as_ref() == Some(&snapshot) && fs::rename(&temporary,&destination).is_ok() {Some(destination)}
         else {let _ = fs::remove_file(temporary);None}
     }
 }
@@ -63,12 +77,12 @@ mod tests {
             let input = dir.join(format!("image with spaces.{extension}"));
             let output = dir.join(format!("preview-{extension}.png"));
             image::RgbaImage::from_pixel(640,320,image::Rgba([10,120,210,255])).save(&input).unwrap();
-            let before = Source::new(input.clone()).unwrap();
+            let before = Snapshot::read(&input).unwrap();
             assert!(native_image(&input,&output));
             assert_eq!(image::image_dimensions(&output).unwrap(),(256,128));
             assert!(valid(&output));
             fs::write(&input,b"changed file").unwrap();
-            let after = Source::new(input).unwrap();
+            let after = Snapshot::read(&input).unwrap();
             assert_ne!(before.destination(),after.destination());
         }
         let _ = fs::remove_dir_all(dir);

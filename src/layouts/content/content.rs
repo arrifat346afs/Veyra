@@ -22,27 +22,32 @@ pub fn content(
     list_view: bool,
     preferences: &crate::settings::preferences::Preferences,
     selection: &crate::selection::Selection,
+    thumbnail_generation: u64,
     cx: &mut Context<MainWindow>,
 ) -> AnyElement {
     let icon_size = preferences.icon_size.clamp(48,192) as f32;
     let spacing = [20.,12.,8.,4.][preferences.density.min(3)];
-    let single_click = preferences.single_click;
     let palette = cx.theme().clone();
     let entry_tiles: Vec<_> = entries.iter().map(|entry| {
         let path = entry.clone();
         let is_dir = entry.is_dir();
         let name = entry.file_name().and_then(|name| name.to_str()).unwrap_or("(unnamed)").to_owned();
         let icon = papirus_icon(entry, is_dir);
+        let appimage = entry.extension().and_then(|ext| ext.to_str())
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("appimage"));
         let tile = div().id(format!("entry-{}", entry.display())).w(px(icon_size+52.)).h(px(icon_size+76.))
             .flex().flex_col().items_center().justify_start().gap(px(8.0)).p(px(10.0))
             .rounded(px(8.0)).text_color(palette.foreground).cursor_pointer()
             .when(list_view, |tile| tile.w_full().h(px(40.+spacing)).flex_row())
-            // Load as an image so GPUI preserves Papirus' multicolor SVG fills.
-            .child(crate::thumbnails::preview(entry, PathBuf::from(icon), !is_dir && preferences.show_thumbnails, if list_view {32.} else {icon_size}))
+            .child(if is_dir {
+                crate::components::folder_icon::view(PathBuf::from(icon), if list_view {32.} else {icon_size}, cx)
+            } else {
+                crate::thumbnails::preview(entry, PathBuf::from(icon), preferences.show_thumbnails || appimage, if list_view {32.} else {icon_size}, thumbnail_generation)
+            })
             .child(div().w_full().text_center().text_ellipsis().text_size(px(preferences.filename_size.clamp(10,24) as f32)).child(name))
             .when(!is_dir && preferences.show_sizes, |tile| tile.child(div().text_color(palette.muted_foreground).text_size(px(11.0))
                 .child(format_file_size(entry))))
-            .when(is_dir, |tile| tile.on_click(cx.listener(move |this, event: &ClickEvent, _, cx| { if !(event.modifiers().control || event.modifiers().shift) && (single_click || event.click_count() == 2) {this.navigate_to(path.clone(), cx)} })))
+            .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| { if !(event.modifiers().control || event.modifiers().shift) && event.click_count() == 2 {if is_dir {this.navigate_to(path.clone(), window, cx);} else {cx.open_with_system(&path);}} }))
         ;
         crate::selection::item(tile, entry.clone(), selection, cx)
     }).collect();

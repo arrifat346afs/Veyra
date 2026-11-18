@@ -7,8 +7,8 @@ pub fn navigation(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElemen
     let forward = !state.forward_history.is_empty();
     div().flex().gap(px(3.))
         .child(button("back", IconName::ArrowLeft, "", state.preferences.foreground_alpha(), cx).opacity(if back {1.} else {0.35})
-            .on_click(cx.listener(|s, _, _, cx| s.go_back(cx))))
+            .on_click(cx.listener(|s, _, window, cx| s.go_back(window,cx))))
         .child(button("forward", IconName::ArrowRight, "", state.preferences.foreground_alpha(), cx).opacity(if forward {1.} else {0.35})
-            .on_click(cx.listener(|s, _, _, cx| s.go_forward(cx))))
+            .on_click(cx.listener(|s, _, window, cx| s.go_forward(window,cx))))
         .into_any_element()
 }

@@ -8,12 +8,16 @@ A file manager for Linux, built in Rust with [GPUI](https://www.gpui.rs/) and
 - Grid and list views with adjustable icon size, label size, and spacing
 - Thumbnails: images and GIFs are decoded with `image-rs`; other formats preview
   through any freedesktop thumbnailer installed on the system
+- File and folder creation, rename, copy, cut/move, paste, trash, and permanent delete
+- Open files in their default application for reading and editing
 - Sidebar with home places and persistent bookmarks
 - Breadcrumb navigation with back/forward history
 - Live filtering of the current folder, with an optional case-sensitive mode
 - Sorting by name, size, modified time, or type; folders-first option
 - Multi-select with Ctrl/Shift click and a rubber-band drag
-- Dark/light theme plus window, sidebar, and surface opacity sliders
+- Dark/light and custom JSON themes with live reload when the theme file changes
+- Folder icons follow the theme accent while preserving their shading and symbols
+- Window, sidebar, and surface opacity sliders
 - Searchable settings, persisted across launches
 
 ## Requirements
@@ -23,6 +27,7 @@ A file manager for Linux, built in Rust with [GPUI](https://www.gpui.rs/) and
 - Rust 1.85 or newer (the crate uses edition 2024)
 - The [Papirus icon theme](https://github.com/PapirusDevelopmentTeam/papirus-icon-theme)
   (`papirus-icon-theme` on most distributions) for file and folder icons
+- `gio` (GLib utilities) for desktop trash support
 - Optional: `ffmpegthumbnailer` or another freedesktop thumbnailer for video and
   document previews
 
@@ -40,6 +45,14 @@ The binary is written to `target/release/veyra`.
 
 | Shortcut | Action |
 | --- | --- |
+| `Ctrl+Shift+N` | Create a folder |
+| `Ctrl+C` / `Ctrl+X` / `Ctrl+V` | Copy / cut / paste |
+| `Ctrl+A` | Select all visible files |
+| `F2` | Rename the selected item |
+| `Delete` | Move selected items to trash |
+| `Shift+Delete` | Permanently delete selected items, with confirmation |
+| `Enter` | Open selected items |
+| `F5` / `Ctrl+R` | Reload the current directory |
 | `Ctrl+H` | Toggle hidden files (dotfiles) |
 | `Ctrl+,` | Open settings |
 | `Escape` | Close settings |
@@ -68,6 +81,7 @@ src/
   layouts/          topbar, sidebar, and content pane
   settings/         preferences, settings panel, and reusable controls
   selection/        click, multi-select, and rubber-band selection
+  context_menu/     menu layout, commands, dialogs, clipboard, and file operations
   thumbnails/       thumbnail cache and freedesktop thumbnailer discovery
   services/         persistent bookmarks
   keyboard_shortcuts/

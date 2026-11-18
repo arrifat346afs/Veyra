@@ -6,17 +6,21 @@ use std::path::PathBuf;
 use crate::windows::MainWindow;
 use super::{Selection,state::rectangle};
 pub fn item(tile: Stateful<Div>, path: PathBuf, selection: &Selection, cx: &mut Context<MainWindow>) -> AnyElement {
+    let measured_path_for_menu=path.clone();
     let geometry=selection.geometry.clone();
     let measured_path=path.clone();
     let selected=selection.selected.contains(&path);
     let color=cx.theme().primary;
-    let hover_color = if selected { color.opacity(0.28) } else { cx.theme().list_hover };
-    tile.relative()
+    // A translucent accent keeps hover distinct from selection and lets the
+    // pane's background show through, including when window opacity is reduced.
+    let hover_color = color.opacity(if selected { 0.28 } else { 0.10 });
+    let tile = tile.relative()
         // GPUI allows exactly one hover style per element. Own both selected
         // and unselected hover styling here rather than decorating it twice.
         .when(selected, |tile| tile.bg(color.opacity(0.22)))
         .hover(move |style| style.bg(hover_color))
-        .on_mouse_down(MouseButton::Left,cx.listener(move |state,event: &MouseDownEvent,_,cx| {
+        .on_mouse_down(MouseButton::Left,cx.listener(move |state,event: &MouseDownEvent,window,cx| {
+            state.focus.focus(window,cx);
             if event.modifiers.control || event.modifiers.shift {
                 if !state.selection.selected.insert(path.clone()) {state.selection.selected.remove(&path);}
             } else {
@@ -27,14 +31,16 @@ pub fn item(tile: Stateful<Div>, path: PathBuf, selection: &Selection, cx: &mut 
         // Anchor to the tile origin; an unanchored absolute child uses its
         // static position after the icon and label, producing incorrect hit bounds.
         .child(canvas(move |bounds,_,_| {geometry.borrow_mut().items.insert(measured_path.clone(),bounds);},|_,_,_,_| {}).absolute().inset_0().size_full())
-        .into_any_element()
+;
+    crate::context_menu::attach_entry(tile, measured_path_for_menu,cx)
 }
 pub fn area(body: AnyElement, selection: &Selection, cx: &mut Context<MainWindow>) -> AnyElement {
     let geometry=selection.geometry.clone();
     let drag=selection.drag;
     let color=cx.theme().primary;
-    div().id("selection-area").relative().flex_1().min_h(px(0.)).w_full().overflow_hidden()
-        .on_mouse_down(MouseButton::Left,cx.listener(|state,event: &MouseDownEvent,_,cx| {
+    let area = div().id("selection-area").relative().flex_1().min_h(px(0.)).w_full().overflow_hidden()
+        .on_mouse_down(MouseButton::Left,cx.listener(|state,event: &MouseDownEvent,window,cx| {
+            state.focus.focus(window,cx);
             if event.modifiers.control || event.modifiers.shift { state.selection.baseline=state.selection.selected.clone(); }
             else {state.selection.baseline.clear();state.selection.selected.clear();}
             state.selection.drag=Some((event.position,event.position));cx.notify();
@@ -56,5 +62,6 @@ pub fn area(body: AnyElement, selection: &Selection, cx: &mut Context<MainWindow
                 window.paint_quad(quad(rectangle(start,end),px(2.),color.opacity(0.12),px(1.),color,BorderStyle::Solid));
             }
         }).absolute().inset_0().size_full())
-        .into_any_element()
+;
+    crate::context_menu::attach(area,cx)
 }
