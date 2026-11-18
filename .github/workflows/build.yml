@@ -110,7 +110,7 @@ jobs:
           docker run --rm \
             -v "$PWD:/src" -w /src \
             archlinux:base-devel \
-            bash -lc 'set -e; pacman -Syu --noconfirm --needed rust cargo clang cmake pkgconf glib2 gcc-libs glibc mesa wayland libxkbcommon libxkbcommon-x11 libx11 libxcb fontconfig freetype2; useradd -m builder; cp -a /src /tmp/build; chown -R builder:builder /tmp/build; su builder -c "cd /tmp/build && makepkg --noconfirm --nodeps"; cp /tmp/build/*.pkg.tar.zst /src/'
+            bash -lc 'set -e; pacman -Syu --noconfirm --needed rust cargo clang cmake pkgconf glib2 gcc-libs glibc mesa wayland libxkbcommon libxkbcommon-x11 libx11 libxcb fontconfig freetype2; pkg-config --modversion xkbcommon-x11; useradd -m builder; cp -a /src /tmp/build; chown -R builder:builder /tmp/build; su builder -c "cd /tmp/build && makepkg --noconfirm --nodeps"; cp /tmp/build/*.pkg.tar.zst /src/'
           sha256sum ./*.pkg.tar.zst > veyra-arch-x86_64.pkg.tar.zst.sha256
 
       - name: Upload Arch package
