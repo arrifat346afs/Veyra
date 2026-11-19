@@ -25,6 +25,8 @@ pub fn topbar(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
         .child(search::search(state, cx))
         .child(views::views(state.list_view, state.column_view, state.view_menu_open, state.preferences.foreground_alpha(), cx))
         .child(sorting::sorting(state, cx))
+        .child(div().id("new-window").px(px(8.)).py(px(6.)).rounded(cx.theme().radius).cursor_pointer().child("▣")
+            .on_click(cx.listener(|s, _, _, cx| crate::windows::MainWindow::open_at(s.current_dir.clone(), cx))))
         .child(super::settings_button::settings_button(state.preferences.foreground_alpha(), cx))
         .into_any_element()
 }

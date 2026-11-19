@@ -2,5 +2,6 @@
 pub mod content;
 pub mod sidebar;
 pub mod frame;
+pub mod tabs;
 
 pub mod topbar;

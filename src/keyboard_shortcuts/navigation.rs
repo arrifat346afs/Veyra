@@ -31,6 +31,21 @@ pub(super) fn handle(
     }
     let key = event.keystroke.key.as_str();
     let modifiers = event.keystroke.modifiers;
+    let control = Modifiers { control: true, ..Default::default() };
+    if modifiers == control && !event.is_held {
+        match key {
+            "t" => { state.new_tab(window, cx); cx.stop_propagation(); return true; }
+            "w" => { state.close_tab(window, cx); cx.stop_propagation(); return true; }
+            "n" => { crate::windows::MainWindow::open_at(state.current_dir.clone(), cx); cx.stop_propagation(); return true; }
+            "tab" if state.tabs.len() > 1 => {
+                let next = (state.tabs.active_index() + 1) % state.tabs.len();
+                state.switch_tab(next, window, cx);
+                cx.stop_propagation();
+                return true;
+            }
+            _ => {}
+        }
+    }
     if modifiers
         == (Modifiers {
             alt: true,

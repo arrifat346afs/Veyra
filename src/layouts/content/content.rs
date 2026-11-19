@@ -82,7 +82,7 @@ pub fn content(
             .when(!is_dir && preferences.show_sizes, |tile| tile.child(div().when(list_view, |size| size.w(px(84.)).text_right())
                 .text_color(palette.muted_foreground).text_size(px(11.0))
                 .child(format_file_size(entry))))
-            .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| { if !(event.modifiers().control || event.modifiers().shift) && event.click_count() == 2 {if crate::context_menu::files::is_trash_location(&this.current_dir) {this.selection.selected.clear();this.selection.selected.insert(path.clone());crate::context_menu::actions::run(crate::context_menu::actions::Command::Restore,this,window,cx);} else if is_dir {this.navigate_to(path.clone(), window, cx);} else if this.picker.is_some() {crate::picker::accept(this,window,cx);} else if crate::context_menu::files::is_zip(&path) {this.selection.selected.clear();this.selection.selected.insert(path.clone());crate::context_menu::actions::run(crate::context_menu::actions::Command::Open,this,window,cx);} else {cx.open_with_system(&path);}} }))
+            .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| { if !(event.modifiers().control || event.modifiers().shift) && event.click_count() == 2 {if crate::context_menu::files::is_trash_location(&this.current_dir) {this.selection.selected.clear();this.selection.selected.insert(path.clone());crate::context_menu::actions::run(crate::context_menu::actions::Command::Restore,this,window,cx);} else if is_dir {this.navigate_to(path.clone(), window, cx);} else if this.picker.is_some() {crate::picker::accept(this,window,cx);} else if crate::context_menu::files::is_zip(&path) {this.selection.selected.clear();this.selection.selected.insert(path.clone());crate::context_menu::actions::run(crate::context_menu::actions::Command::Open,this,window,cx);} else {crate::services::navigation::record_recent(&path); cx.open_with_system(&path);}} }))
         ;
         crate::selection::item(tile, entry.clone(), selection, picker, cx)
     }).collect();
@@ -171,6 +171,7 @@ fn columns_content(
                         state.selection.selected.insert(path.clone());
                         state.open_column(path.clone(),column_index,window,cx);
                     } else if event.click_count() == 2 {
+                        crate::services::navigation::record_recent(&path);
                         cx.open_with_system(&path);
                     }
                 }));

@@ -30,11 +30,11 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 | Parent folder navigation | ✅ | Backspace shortcut. |
 | Breadcrumb navigation | ✅ | Clickable path segments. |
 | Editable path bar | ✅ | Double-click the path; type a path and use folder suggestions. |
-| Multiple tabs | ❌ | Not implemented. |
-| Multiple windows | 🟡 | The app can open its main and settings/picker windows; there is no command to open a second independent file-browser window. |
+| Multiple tabs | ✅ | Ctrl+T opens a tab. The tab strip appears when the window has multiple tabs; use it to switch tabs, open another tab, or close the active tab. Ctrl+Tab also switches tabs, and Ctrl+W closes the active tab. Each tab restores its last folder. |
+| Multiple windows | ✅ | The new-window control or Ctrl+N opens an independent file-browser window at the current folder. Settings and picker windows remain available. |
 | Keyboard shortcuts | ✅ | Navigation, selection, view, file operations, hidden files, and settings shortcuts are available. See the existing README. |
-| Recent files | ❌ | No recent-files view. |
-| Starred files | ❌ | No starred-file feature. |
+| Recent files | ✅ | Sidebar view records up to 100 recently opened files and keeps the list across launches. Missing files are omitted. |
+| Starred files | ✅ | Toggle Starred from an item’s context menu; the sidebar view persists starred files and folders across launches. |
 | Hidden files | ✅ | Toggle dotfiles with Ctrl+H or the context menu; preference is stored. |
 
 ## 3. Sidebar and bookmarks
@@ -78,7 +78,7 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 | File type filters | 🟡 | Portal file-picker requests can filter by MIME type or glob; the normal browser search has no type-filter controls. |
 | Date filters | ❌ | No date-based search filters. |
 | Indexed content search | ❌ | No index or content search. |
-| Recent file search | ❌ | No recent-files dataset/view. |
+| Recent file search | ✅ | The filename search filters the Recent view. |
 | Multiple search filters | ❌ | Normal search supports a filename query and case-sensitivity preference only. |
 
 ## 6. File properties

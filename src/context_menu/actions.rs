@@ -10,6 +10,7 @@ use std::path::PathBuf;
 #[derive(Clone, Copy)]
 pub enum Command {
     Bookmark,
+    ToggleStar,
     NewFolder,
     NewDocument,
     Paste,
@@ -58,7 +59,7 @@ pub fn run(
         match command {
             Command::Open => {crate::picker::accept(state,window,cx); return;}
             Command::SelectAll if !picker.request.multiple => return,
-            Command::SelectAll | Command::Reload | Command::Hidden | Command::Bookmark | Command::Preview => {}
+            Command::SelectAll | Command::Reload | Command::Hidden | Command::Bookmark | Command::ToggleStar | Command::Preview => {}
             _ => return,
         }
     }
@@ -80,6 +81,18 @@ pub fn run(
             for path in selected(state).into_iter().filter(|path| path.is_dir()) {
                 if !bookmark(&path, state, window, cx) { break; }
             }
+        }
+        Command::ToggleStar => {
+            for path in selected(state) {
+                if let Err(error) = crate::services::navigation::toggle_star(&path) {
+                    message(state, "Could not update Starred", error.to_string(), window, cx);
+                    return;
+                }
+            }
+            if state.current_dir == crate::services::navigation::starred_location() {
+                state.entries = crate::services::navigation::starred().into_iter().filter(|p| p.exists()).collect();
+            }
+            cx.notify();
         }
         Command::NewFolder | Command::NewDocument => {
             let folder = matches!(command, Command::NewFolder);
@@ -270,6 +283,7 @@ pub fn run(
                 });
             } else {
                 for path in paths {
+                    crate::services::navigation::record_recent(&path);
                     cx.open_with_system(&path);
                 }
             }

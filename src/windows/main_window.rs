@@ -8,6 +8,7 @@
 use std::{fs, path::PathBuf};
 
 use gpui_kit::*;
+use gpui_kit::prelude::*;
 use gpui_kit::component::{ActiveTheme as _, Theme, ThemeRegistry};
 
 use crate::layouts::{content, sidebar, topbar};
@@ -49,6 +50,7 @@ pub struct MainWindow {
     pub(crate) search: Entity<InputState>,
     pub(crate) back_history: Vec<PathBuf>,
     pub(crate) forward_history: Vec<PathBuf>,
+    pub(crate) tabs: super::tabs::Tabs,
     pub(crate) list_view: bool,
     pub(crate) column_view: bool,
     pub(crate) column_paths: Vec<PathBuf>,
@@ -65,6 +67,14 @@ pub struct MainWindow {
 
 impl MainWindow {
     pub fn open(picker_request: Option<crate::picker::Request>, cx: &mut App) {
+        Self::open_with_location(picker_request, None, cx);
+    }
+
+    pub fn open_at(path: PathBuf, cx: &mut App) {
+        Self::open_with_location(None, Some(path), cx);
+    }
+
+    fn open_with_location(picker_request: Option<crate::picker::Request>, start: Option<PathBuf>, cx: &mut App) {
         cx.open_window(WindowOptions { app_id: Some("veyra".into()), window_background: WindowBackgroundAppearance::Transparent, ..WindowOptions::default() }, move |window, cx| {
             window.set_window_title(picker_request.as_ref().map(|r| r.title.as_str()).filter(|s| !s.is_empty()).unwrap_or("Veyra"));
             if picker_request.is_some() { window.on_window_should_close(cx, |_,cx| {cx.quit(); true}); }
@@ -77,8 +87,10 @@ impl MainWindow {
             }
             crate::settings::theme::transparent_scrollbar_track(cx);
             crate::settings::rounding::apply(preferences.corner_radius, cx);
-            let current_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
-            let current_dir = if preferences.home_start { std::env::var_os("HOME").map(PathBuf::from).unwrap_or(current_dir) } else { current_dir };
+            let current_dir = start.unwrap_or_else(|| {
+                let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
+                if preferences.home_start { std::env::var_os("HOME").map(PathBuf::from).unwrap_or(cwd) } else { cwd }
+            });
             let current_dir = picker_request.as_ref().map(|r| r.initial_directory()).unwrap_or(current_dir);
             let (entries, error) = read_directory(&current_dir);
             let view = cx.new(|cx| {
@@ -144,7 +156,7 @@ impl MainWindow {
                 let settings_sliders = crate::settings::sliders::create(&preferences,cx);
                 let theme_watch = crate::settings::theme_watch::start(cx);
                 Self { quick_preview:Default::default(), application_chooser:None, portal_settings:Default::default(), picker, _theme_watch:theme_watch, theme_error:None, batch_rename:None, file_dialog:None, file_operation_busy:false, file_operation_progress:None, undo_history:vec![], redo_history:vec![], cut_clipboard:None, path_bar, thumbnail_generation: 0, selection: Default::default(), settings_sliders, settings_window:None,settings_page:0,settings_search,settings_error,
-                    focus, current_dir: current_dir.clone(), entries, error, search, back_history: vec![], forward_history: vec![], list_view: preferences.list_view, column_view: preferences.column_view, column_paths: vec![current_dir], view_menu_open:false, reverse_sort: preferences.reverse_sort, show_sidebar: preferences.show_sidebar, show_hidden: preferences.show_hidden, custom_theme_path, preferences }
+                    focus, current_dir: current_dir.clone(), entries, error, search, back_history: vec![], forward_history: vec![], tabs: super::tabs::Tabs::new(current_dir.clone()), list_view: preferences.list_view, column_view: preferences.column_view, column_paths: vec![current_dir], view_menu_open:false, reverse_sort: preferences.reverse_sort, show_sidebar: preferences.show_sidebar, show_hidden: preferences.show_hidden, custom_theme_path, preferences }
             });
             // Override the component root’s opaque background so pane alpha reaches the compositor.
             cx.new(|cx| gpui_kit::base::Root::new(view,window,cx).bg(rgba(0x00000000)))
@@ -199,6 +211,7 @@ impl MainWindow {
         self.column_paths.push(path.clone());
         let (entries, error) = read_directory(&path);
         self.current_dir = path;
+        self.tabs.update_location(self.current_dir.clone());
         self.entries = entries;
         self.error = error;
         self.selection.cursor = None;
@@ -235,15 +248,23 @@ impl MainWindow {
         self.selection = Default::default();
         self.thumbnail_generation = self.thumbnail_generation.wrapping_add(1);
         self.current_dir = path;
+        self.tabs.update_location(self.current_dir.clone());
         self.column_paths = vec![self.current_dir.clone()];
         self.entries = entries;
         self.error = error;
         cx.notify();
     }
+
 }
 
 /// Read a directory safely: inaccessible paths become a user-visible message.
 fn read_directory(path: &PathBuf) -> (Vec<PathBuf>, Option<String>) {
+    if path == &crate::services::navigation::recent_location() {
+        return (crate::services::navigation::recent().into_iter().filter(|p| p.exists()).collect(), None);
+    }
+    if path == &crate::services::navigation::starred_location() {
+        return (crate::services::navigation::starred().into_iter().filter(|p| p.exists()).collect(), None);
+    }
     if crate::context_menu::files::is_trash_location(path) {
         return match crate::context_menu::files::read_trash() {
             Ok(entries) => (entries, None),
@@ -271,7 +292,12 @@ impl Render for MainWindow {
             let name = path.file_name().unwrap_or_default().to_string_lossy();
             self.picker.as_ref().is_none_or(|p| p.request.allows(path)) && (self.show_hidden || !name.starts_with('.')) && (if self.preferences.case_sensitive {name.to_string()} else {name.to_lowercase()}).contains(&query)
         }).cloned().collect();
+        let preserve_navigation_order = self.current_dir == crate::services::navigation::recent_location()
+            || self.current_dir == crate::services::navigation::starred_location();
         visible.sort_by(|a,b| {
+            if preserve_navigation_order {
+                return self.entries.iter().position(|p| p == a).cmp(&self.entries.iter().position(|p| p == b));
+            }
             let order = match self.preferences.sort_by {
                 1=>a.metadata().map(|m|m.len()).unwrap_or(0).cmp(&b.metadata().map(|m|m.len()).unwrap_or(0)),
                 2=>a.metadata().and_then(|m|m.modified()).ok().cmp(&b.metadata().and_then(|m|m.modified()).ok()),
@@ -328,7 +354,9 @@ impl Render for MainWindow {
             .bg(palette.muted.opacity(self.preferences.window_opacity.min(100) as f32 / 100.))
             .child(frame.background(palette.background.opacity(self.preferences.foreground_alpha()), palette.radius))
             .child(body.child(div().flex_1().min_w(px(0.)).h_full().flex().flex_col()
-                .child(toolbar).child(workspace)
+                .child(toolbar)
+                .when(self.tabs.len() > 1, |column| column.child(crate::layouts::tabs::view(self, cx)))
+                .child(workspace)
                 .children(self.picker.as_ref().map(|_| crate::picker::footer(self,cx)))));
         if self.path_bar.editing { root = root.child(crate::components::path_bar::suggestions_overlay(self,window_width,cx)); }
         if self.file_operation_busy && self.file_dialog.is_none() {

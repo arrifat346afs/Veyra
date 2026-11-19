@@ -39,6 +39,8 @@ pub fn sidebar(current_dir: &Path, cx: &mut Context<MainWindow>) -> impl IntoEle
             }
         }))
         .child(div().px(px(14.0)).h(px(38.)).flex().items_center().text_size(px(13.)).text_color(palette.link).child("Places"))
+        .child(location_row("Recent", IconName::Clock3, crate::services::navigation::recent_location(), current_dir, cx))
+        .child(location_row("Starred", IconName::Star, crate::services::navigation::starred_location(), current_dir, cx))
         .child(location_row("Home", IconName::House, home.clone(), current_dir, cx))
         .child(location_row("Desktop", IconName::PanelsTopLeft, home.join("Desktop"), current_dir, cx))
         .child(location_row("Documents", IconName::Files, home.join("Documents"), current_dir, cx))
