@@ -53,8 +53,9 @@ pub fn area(body: AnyElement, selection: &Selection, picker: bool, cx: &mut Cont
             else {state.selection.baseline.clear();state.selection.selected.clear();}
             if state.picker.as_ref().is_none_or(|p| p.request.multiple) {state.selection.drag=Some((event.position,event.position));}cx.notify();
         }))
-        .on_mouse_move(cx.listener(|state,event: &MouseMoveEvent,_,cx| {
+        .on_mouse_move(cx.listener(|state,event: &MouseMoveEvent,window,cx| {
             if state.selection.drag.is_some() {state.selection.update(event.position);cx.notify();}
+            if cx.has_active_drag() { cx.set_active_drag_cursor_style(CursorStyle::ClosedHand,window); }
         }))
         .on_mouse_up(MouseButton::Left,cx.listener(|state,event: &MouseUpEvent,_,cx| {
             if state.selection.drag.is_some() {state.selection.update(event.position);state.selection.drag=None;cx.notify();}

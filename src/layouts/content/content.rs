@@ -40,18 +40,28 @@ pub fn content(
     let palette = cx.theme().clone();
     let entry_tiles: Vec<_> = entries.iter().map(|entry| {
         let path = entry.clone();
+        let drop_destination = path.clone();
         let is_dir = entry.is_dir();
         let name = entry.file_name().and_then(|name| name.to_str()).unwrap_or("(unnamed)").to_owned();
         let icon = papirus_icon(entry, is_dir);
+        let mut drag_paths: Vec<_> = if selection.selected.contains(entry) {
+            selection.selected.iter().cloned().collect()
+        } else { vec![entry.clone()] };
+        drag_paths.sort();
         let appimage = entry.extension().and_then(|ext| ext.to_str())
             .is_some_and(|ext| ext.eq_ignore_ascii_case("appimage"));
         let tile = div().id(format!("entry-{}", entry.display())).w(px(icon_size+52.)).h_auto()
             .flex().flex_col().items_center().justify_start().gap(px(8.0)).p(px(10.0))
-            .rounded(cx.theme().radius).text_color(palette.foreground).cursor_pointer()
-            .when(is_dir, |tile| tile.on_drag(
-                crate::components::folder_drag::FolderDrag { path: entry.clone() },
+            .rounded(cx.theme().radius).text_color(palette.foreground).cursor(CursorStyle::OpenHand)
+            .on_drag(
+                crate::components::folder_drag::FolderDrag { paths: drag_paths },
                 |drag, _, _, cx| { cx.stop_propagation(); cx.new(|_| drag.clone()) },
-            ))
+            )
+            .when(is_dir, |tile| tile
+                .drag_over::<crate::components::folder_drag::FolderDrag>(|style,_,_,cx| style.bg(cx.theme().primary.opacity(0.28)))
+                .on_drop(cx.listener(move |state,drag:&crate::components::folder_drag::FolderDrag,window,cx| {
+                    crate::context_menu::actions::move_paths_to(drag.paths.clone(),drop_destination.clone(),state,window,cx);
+                })))
             .when(list_view, |tile| tile.w_full().h_auto().flex_row().items_center().gap(px(12.)).py(px(4.)))
             .child(if is_dir {
                 crate::components::folder_icon::view(PathBuf::from(icon), if list_view {32.} else {icon_size}, cx)
@@ -114,12 +124,25 @@ fn columns_content(
         });
         let rows = items.into_iter().map(|entry| {
             let path = entry.clone();
+            let drop_destination = path.clone();
             let is_dir = entry.is_dir();
             let name = entry.file_name().unwrap_or_default().to_string_lossy().into_owned();
             let icon = papirus_icon(&entry, is_dir);
+            let mut drag_paths: Vec<_> = if selection.selected.contains(&entry) {
+                selection.selected.iter().cloned().collect()
+            } else { vec![entry.clone()] };
+            drag_paths.sort();
             let row = div().id(format!("column-entry-{}",entry.display())).w_full().min_w(px(0.))
                 .h_auto().px(px(10.)).py(px(6.)).rounded(cx.theme().radius)
-                .flex().items_center().gap(px(9.)).cursor_pointer()
+                .flex().items_center().gap(px(9.)).cursor(CursorStyle::OpenHand)
+                .on_drag(crate::components::folder_drag::FolderDrag {paths:drag_paths}, |drag,_,_,cx| {
+                    cx.stop_propagation();cx.new(|_| drag.clone())
+                })
+                .when(is_dir, |row| row
+                    .drag_over::<crate::components::folder_drag::FolderDrag>(|style,_,_,cx| style.bg(cx.theme().primary.opacity(0.28)))
+                    .on_drop(cx.listener(move |state,drag:&crate::components::folder_drag::FolderDrag,window,cx| {
+                        crate::context_menu::actions::move_paths_to(drag.paths.clone(),drop_destination.clone(),state,window,cx);
+                    })))
                 .child(if is_dir {
                     crate::components::folder_icon::view(PathBuf::from(icon), 20., cx)
                 } else {
@@ -205,6 +228,15 @@ fn papirus_icon(path: &Path, is_dir: bool) -> String {
         .or_else(|| archive.then(|| find_papirus_icon("mimetypes", "package-x-generic")).flatten())
         .or_else(|| find_papirus_icon("mimetypes", "text-x-generic"))
         .unwrap_or_default()
+}
+
+pub(crate) fn drag_icon(path: &Path, cx: &mut App) -> AnyElement {
+    let icon = PathBuf::from(papirus_icon(path, path.is_dir()));
+    if path.is_dir() {
+        crate::components::folder_icon::view(icon, 40., cx)
+    } else {
+        crate::thumbnails::preview(path, icon, true, 40., 0)
+    }
 }
 
 /// Resolve system theme names and all XDG icon directories once per process.

@@ -318,6 +318,19 @@ pub fn perform(
     .detach();
 }
 
+pub fn move_paths_to(
+    paths: Vec<PathBuf>,
+    destination: PathBuf,
+    state: &mut MainWindow,
+    window: &mut Window,
+    cx: &mut Context<MainWindow>,
+) {
+    if paths.is_empty() || paths.iter().any(|path| !path.exists()) { return; }
+    perform(state, window, cx, move || {
+        files::move_to(&paths, &destination).map_err(|error| error.to_string())
+    });
+}
+
 fn perform_and_navigate(
     state: &mut MainWindow,
     window: &mut Window,

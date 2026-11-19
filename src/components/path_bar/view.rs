@@ -88,8 +88,8 @@ pub fn suggestions_overlay(state: &MainWindow, window_width: f32, cx: &mut Conte
         .child(div().w_full()
             .when(!state.path_bar.suggestions.is_empty(), |list| list
                 .p(px(5.)).rounded(cx.theme().radius)
-                .bg(palette.muted)
-                .occlude())
+                .bg(palette.muted.opacity(1.))
+                .shadow_sm().occlude())
             .children(state.path_bar.suggestions.iter().enumerate().map(|(index,path)| {
                 let target = path.clone();
                 let label = path.file_name().map(|name| name.to_string_lossy().into_owned())
@@ -97,8 +97,9 @@ pub fn suggestions_overlay(state: &MainWindow, window_width: f32, cx: &mut Conte
                 let selected = state.path_bar.highlighted == Some(index);
                 div().id(format!("path-suggestion-{index}")).w_full().px(px(12.)).py(px(9.))
                     .flex().items_center().gap(px(9.)).rounded(cx.theme().radius).cursor_pointer()
-                    .when(selected, |row| row.bg(palette.primary.opacity(0.23)))
-                    .hover(|style| style.bg(palette.list_hover))
+                    .text_color(palette.foreground)
+                    .when(selected, |row| row.bg(palette.primary.opacity(0.38)))
+                    .hover(|style| style.bg(if selected {palette.primary.opacity(0.48)} else {palette.list_hover}))
                     .child(Icon::new(IconName::Folder).size(px(16.)))
                     .child(label)
                     .on_click(cx.listener(move |state,_,window,cx| {

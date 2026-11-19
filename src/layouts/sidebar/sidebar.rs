@@ -34,7 +34,9 @@ pub fn sidebar(current_dir: &Path, cx: &mut Context<MainWindow>) -> impl IntoEle
             style.bg(cx.theme().primary.opacity(0.12))
         })
         .on_drop(cx.listener(|state, drag: &crate::components::folder_drag::FolderDrag, window, cx| {
-            crate::context_menu::actions::bookmark(&drag.path, state, window, cx);
+            if drag.paths.len() == 1 && drag.paths[0].is_dir() {
+                crate::context_menu::actions::bookmark(&drag.paths[0], state, window, cx);
+            }
         }))
         .child(div().px(px(14.0)).h(px(38.)).flex().items_center().text_size(px(13.)).text_color(palette.link).child("Places"))
         .child(location_row("Home", IconName::House, home.clone(), current_dir, cx))

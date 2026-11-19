@@ -143,7 +143,14 @@ pub fn rename(source: &Path, target: &Path) -> io::Result<()> {
     }
 }
 pub fn move_to(sources: &[PathBuf], directory: &Path) -> io::Result<()> {
+    let destination = directory.canonicalize()?;
     for source in sources {
+        if source.parent().is_some_and(|parent| parent.canonicalize().ok().as_deref() == Some(destination.as_path())) {
+            continue;
+        }
+        if source.is_dir() && destination.starts_with(source.canonicalize()?) {
+            return Err(io::Error::other("Cannot move a folder into itself or one of its subfolders"));
+        }
         let target = directory.join(
             source
                 .file_name()
