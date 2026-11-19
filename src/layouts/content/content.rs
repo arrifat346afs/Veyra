@@ -13,6 +13,7 @@ use gpui_kit::component::Icon;
 use gpui_kit::component::scroll::ScrollableElement;
 use gpui_kit::prelude::*;
 use gpui_kit_assets::IconName;
+use gio::prelude::Cast;
 
 use crate::windows::MainWindow;
 
@@ -239,7 +240,14 @@ fn papirus_icon(path: &Path, is_dir: bool) -> String {
         || filename.ends_with(".tgz") || filename.ends_with(".tbz")
         || filename.ends_with(".tbz2") || filename.ends_with(".txz")
         || filename.ends_with(".tzst");
-    find_papirus_icon("mimetypes", icon)
+    let (content_type, _) = gio::content_type_guess(path.file_name(), None);
+    let mime_icons = gio::content_type_get_icon(content_type.as_str())
+        .downcast_ref::<gio::ThemedIcon>()
+        .map(|icon| icon.names())
+        .unwrap_or_default();
+    mime_icons.iter()
+        .find_map(|name| find_papirus_icon("mimetypes", name.as_str()))
+        .or_else(|| find_papirus_icon("mimetypes", icon))
         .or_else(|| archive.then(|| find_papirus_icon("mimetypes", "application-x-archive")).flatten())
         .or_else(|| archive.then(|| find_papirus_icon("mimetypes", "package-x-generic")).flatten())
         .or_else(|| find_papirus_icon("mimetypes", "text-x-generic"))

@@ -143,6 +143,7 @@ pub fn view(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
     let mut buttons = div().flex().gap(px(8.)).child(
         Button::new("refresh-file-picker")
             .label("Refresh status")
+            .ghost()
             .disabled(settings.busy)
             .on_click(cx.listener(|state, _, _, cx| run(state, Action::Refresh, cx))),
     );
@@ -150,6 +151,7 @@ pub fn view(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
         buttons = buttons.child(
             Button::new("restart-portal")
                 .label("Apply change…")
+                .ghost()
                 .disabled(settings.busy || managed || state.picker.is_some())
                 .on_click(cx.listener(|state, _, _, cx| {
                     state.portal_settings.confirm_restart = true;
@@ -164,9 +166,9 @@ pub fn view(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
             .child(div().text_size(px(12.)).text_color(palette.muted_foreground)
                 .child("This applies your file picker choice. Open upload/save dialogs will close, and screen sharing may be interrupted."))
             .child(div().flex().gap(px(8.))
-                .child(Button::new("confirm-portal-restart").label("Restart now").primary().disabled(settings.busy)
+                .child(Button::new("confirm-portal-restart").label("Restart now").ghost().disabled(settings.busy)
                     .on_click(cx.listener(|state,_,_,cx|run(state,Action::Restart,cx))))
-                .child(Button::new("later-portal-restart").label("Later").disabled(settings.busy)
+                .child(Button::new("later-portal-restart").label("Later").ghost().disabled(settings.busy)
                     .on_click(cx.listener(|state,_,_,cx|{state.portal_settings.confirm_restart=false;cx.notify();})))));
     }
     card.into_any_element()

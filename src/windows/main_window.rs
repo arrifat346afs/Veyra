@@ -87,7 +87,7 @@ impl MainWindow {
             }
             crate::settings::theme::transparent_scrollbar_track(cx);
             crate::settings::rounding::apply(preferences.corner_radius, cx);
-            let current_dir = start.unwrap_or_else(|| {
+            let current_dir = start.or_else(|| preferences.last_location.clone().filter(|path| path.is_dir())).unwrap_or_else(|| {
                 let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
                 if preferences.home_start { std::env::var_os("HOME").map(PathBuf::from).unwrap_or(cwd) } else { cwd }
             });
@@ -212,6 +212,7 @@ impl MainWindow {
         let (entries, error) = read_directory(&path);
         self.current_dir = path;
         self.tabs.update_location(self.current_dir.clone());
+        self.remember_location();
         self.entries = entries;
         self.error = error;
         self.selection.cursor = None;
@@ -249,10 +250,18 @@ impl MainWindow {
         self.thumbnail_generation = self.thumbnail_generation.wrapping_add(1);
         self.current_dir = path;
         self.tabs.update_location(self.current_dir.clone());
+        self.remember_location();
         self.column_paths = vec![self.current_dir.clone()];
         self.entries = entries;
         self.error = error;
         cx.notify();
+    }
+
+    fn remember_location(&mut self) {
+        if self.picker.is_none() {
+            self.preferences.last_location = Some(self.current_dir.clone());
+            self.settings_error = self.preferences.save().err();
+        }
     }
 
 }

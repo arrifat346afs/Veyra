@@ -14,8 +14,10 @@ pub fn panel(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
     let body = div().flex().flex_col().gap(px(12.)).child(body)
         .children((state.settings_page == 1 || !query.is_empty()).then(|| super::sliders::rows(state,&query,cx)))
         .children(((query.is_empty() && state.settings_page == 0) || (!query.is_empty() && super::file_picker::matches(&query))).then(|| super::file_picker::view(state,cx)));
+    let window_alpha = state.preferences.window_opacity.min(100) as f32 / 100.;
     div().size_full().rounded(palette.radius).overflow_hidden().flex().text_color(palette.foreground)
-        .child(div().w(px(200.)).flex_shrink_0().h_full().flex().flex_col().gap(px(4.)).p(px(12.)).bg(palette.muted.opacity(state.preferences.foreground_alpha()))
+        .bg(palette.muted.opacity(window_alpha))
+        .child(div().w(px(200.)).flex_shrink_0().h_full().flex().flex_col().gap(px(4.)).p(px(12.)).bg(palette.background.opacity(state.preferences.foreground_alpha()))
             .child(div().mb(px(8.)).child(Input::new(&state.settings_search)))
             .children(titles.into_iter().enumerate().map(|(i,title)| {
                 let selected = state.settings_page == i && query.is_empty();
@@ -26,7 +28,7 @@ pub fn panel(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
                     .child(title)
                     .on_click(cx.listener(move |s,_,window,cx| {s.settings_page=i;s.settings_search.update(cx, |input,cx| input.set_value("",window,cx));cx.notify();}))
             })))
-        .child(div().flex_1().min_w(px(0.)).h_full().flex().flex_col().bg(palette.background.opacity(state.preferences.window_opacity.min(100) as f32 / 100.)).p(px(20.)).gap(px(20.))
+        .child(div().flex_1().min_w(px(0.)).h_full().flex().flex_col().p(px(20.)).gap(px(20.))
             .child(div().flex().justify_between().items_center()
                 .child(div().text_size(px(24.)).child(if query.is_empty() {titles[state.settings_page]} else {"Search results"}))
                 .child(div().id("close-settings").cursor_pointer().px(px(14.)).py(px(8.)).rounded(cx.theme().radius).bg(palette.muted.opacity(state.preferences.foreground_alpha())).child("Close")
@@ -39,7 +41,7 @@ pub fn panel(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
                         .child("Custom theme JSON")
                         .child(div().text_size(px(12.)).text_color(palette.muted_foreground).child("Load a GPUI Kit theme or Noctalia/Matugen palette. File changes apply automatically."))
                         .child(Input::new(&state.custom_theme_path))
-                        .child(Button::new("load-custom-theme").label("Load theme").small().primary().on_click(cx.listener(|s,_,window,cx| {
+                        .child(Button::new("load-custom-theme").label("Load theme").small().ghost().on_click(cx.listener(|s,_,window,cx| {
                             let path=s.custom_theme_path.read(cx).value().trim().to_owned();
                             match crate::settings::theme::apply(&path,cx) {
                                 Ok(())=> {

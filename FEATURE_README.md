@@ -32,10 +32,12 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 | Editable path bar | ✅ | Double-click the path; type a path and use folder suggestions. |
 | Multiple tabs | ✅ | Ctrl+T opens a tab. With multiple tabs, a strip in the main pane above the toolbar lets you switch tabs, close any tab, or add one from the far right; the sidebar stays in place. Ctrl+Tab switches tabs, and Ctrl+W closes the active tab. Each tab restores its last folder. |
 | Multiple windows | ✅ | The new-window control or Ctrl+N opens an independent file-browser window at the current folder. Settings and picker windows remain available. |
+| Restore last location | ✅ | Reopens the last visited folder when starting the application. |
 | Keyboard shortcuts | ✅ | Navigation, selection, view, file operations, hidden files, and settings shortcuts are available. See the existing README. |
 | Recent files | ✅ | Sidebar view records up to 100 files opened directly or with an application and keeps the list across launches. Missing files are omitted. |
 | Starred files | ✅ | Toggle Starred from an item’s context menu; the sidebar view persists starred files and folders across launches. |
 | Hidden files | ✅ | Toggle dotfiles with Ctrl+H or the context menu; preference is stored. |
+| Context menus | ✅ | Actions follow the target: archive extraction appears for a single ZIP, folder actions for a single folder, and batch actions for multiple selected items. Empty-space and Trash menus provide directory-level actions. |
 
 ## 3. Sidebar and bookmarks
 
@@ -63,7 +65,7 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 | Icon zoom controls | ✅ | Adjustable content icon size, including keyboard shortcuts. |
 | File thumbnails | 🟡 | Image/GIF handling and installed freedesktop thumbnailers; availability depends on installed providers and settings. |
 | Custom folder icons | 🟡 | Folder icons are themed by Veyra; assigning arbitrary per-folder icons is not implemented. |
-| File type icons | ✅ | Uses installed Papirus icons and MIME/extension mapping. |
+| File type icons | ✅ | Uses Papirus icons selected from the system MIME database, with generic fallbacks. |
 | File sorting | ✅ | Name, size, modified time, or type. |
 | Reverse sorting | ✅ | Sort direction toggle. |
 | Folders-first sorting | ✅ | Preference. |
@@ -152,8 +154,9 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 
 | Feature | Status | Notes |
 |---|---|---|
-| Default view preferences | ✅ | Grid/list/column choice is persisted. |
+| Default view preferences | ✅ | Grid/list/column choice is persisted; the selected choice uses the primary button style. |
 | Icon sizing | ✅ | Adjustable and persisted. |
+| Interface density | ✅ | Spacious, Comfortable, and Compact choices in Appearance settings. |
 | Sorting preferences | ✅ | Sort key, direction, and folders-first behavior are supported. |
 | Thumbnail preferences | ✅ | Thumbnail display can be toggled. |
 | Hidden-file visibility | ✅ | Toggle is available and persisted. |

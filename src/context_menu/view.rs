@@ -63,13 +63,13 @@ fn attach_to(
             }
             cx.notify();
         });
-        let count = owner
-            .upgrade()
-            .map(|state| state.read(cx).selection.selected.len())
-            .unwrap_or(0);
-        let busy = owner
-            .upgrade()
-            .is_some_and(|state| state.read(cx).file_operation_busy);
+        let Some(state) = owner.upgrade() else { return menu; };
+        let state = state.read(cx);
+        let mut paths: Vec<_> = state.selection.selected.iter().cloned().collect();
+        paths.sort();
+        let busy = state.file_operation_busy;
+        let hidden = state.show_hidden;
+        let in_trash = super::files::is_trash_location(&state.current_dir);
         if busy {
             return menu.min_w(px(252.)).item(label("Working…").disabled(true));
         }
@@ -77,71 +77,24 @@ fn attach_to(
             .read_from_clipboard()
             .and_then(|item| item.text())
             .is_some_and(|text| !super::files::clipboard_paths(&text).is_empty());
-        let hidden = owner
-            .upgrade()
-            .is_some_and(|state| state.read(cx).show_hidden);
-        let in_trash = owner.upgrade().is_some_and(|state| {
-            super::files::is_trash_location(&state.read(cx).current_dir)
-        });
-        let document_owner = owner.clone();
-        // Empty-space menus apply Open with to the current folder; entry
-        // menus apply it to the clicked item or the existing multi-selection.
-        let mut menu = menu.min_w(px(252.))
-            .item(item(
-                "Open with…",
-                IconName::AppWindow,
-                Command::ChooseApplication,
-                owner.clone(),
-            ))
-            .separator();
-        if path.is_some() {
+        let mut menu = menu.min_w(px(252.));
+        if !paths.is_empty() {
             if in_trash {
                 menu = menu
                     .item(item("Restore", IconName::RefreshCw, Command::Restore, owner.clone()))
-                    .item(item("Delete permanently…", IconName::Trash, Command::Trash, owner.clone()))
-                    .separator();
+                    .item(item("Delete permanently…", IconName::Trash, Command::Trash, owner.clone()));
             } else {
-            let zip_selected = path.as_ref().is_some_and(|path| super::files::is_zip(path));
-            menu = menu
-                .item(item("Quick preview",IconName::Eye,Command::Preview,owner.clone()).disabled(count != 1 || path.as_ref().is_some_and(|p| !p.is_file())))
-                .item(item("Toggle Starred", IconName::Star, Command::ToggleStar, owner.clone()))
-                .item(item("Extract to folder", IconName::Archive, Command::ExtractZip, owner.clone()).disabled(count != 1 || !zip_selected))
-                .item(item("Cut", IconName::Scissors, Command::Cut, owner.clone()))
-                .item(item("Copy", IconName::Copy, Command::Copy, owner.clone()))
-                .item(item("Create symbolic link…", IconName::Link, Command::CreateLink, owner.clone()).disabled(count != 1 || in_trash))
-                .item(
-                    item("Rename…", IconName::Pencil, Command::Rename, owner.clone())
-                        .disabled(count != 1),
-                )
-                .item(
-                    item("Batch rename…", IconName::Pencil, Command::BatchRename, owner.clone())
-                        .disabled(count < 2),
-                )
-                .item(item(
-                    "Move to trash",
-                    IconName::Trash,
-                    Command::Trash,
-                    owner.clone(),
-                ))
-                .item(item(
-                    "Delete permanently…",
-                    IconName::Trash,
-                    Command::Delete,
-                    owner.clone(),
-                ))
-                .separator();
+                menu = selection_menu(menu, &paths, owner.clone());
             }
+            return menu.separator().item(item("Properties", IconName::Info, Command::Properties, owner.clone()));
         }
-        if path.as_ref().is_some_and(|path| path.is_dir()) {
-            menu = menu.item(item("Add to bookmarks", IconName::Bookmark, Command::Bookmark, owner.clone()))
-                .separator();
+
+        if in_trash {
+            return menu.item(item("Empty Trash…", IconName::Trash, Command::EmptyTrash, owner.clone()))
+                .item(item("Reload", IconName::RefreshCw, Command::Reload, owner.clone()));
         }
-        menu.item(item(
-            "New folder",
-            IconName::FolderPlus,
-            Command::NewFolder,
-            owner.clone(),
-        ))
+        let document_owner = owner.clone();
+        menu.item(item("New folder", IconName::FolderPlus, Command::NewFolder, owner.clone()))
         .submenu_with_icon(
             Some(icon(IconName::FilePlus)),
             "New document",
@@ -198,12 +151,47 @@ fn attach_to(
             owner.clone(),
         ))
         .separator()
-        .item(item(
-            "Properties",
-            IconName::Info,
-            Command::Properties,
-            owner.clone(),
-        ))
+        .item(item("Properties", IconName::Info, Command::Properties, owner.clone()))
     })
     .into_any_element()
+}
+
+fn selection_menu(
+    mut menu: gpui_kit::component::menu::PopupMenu,
+    paths: &[std::path::PathBuf],
+    owner: WeakEntity<MainWindow>,
+) -> gpui_kit::component::menu::PopupMenu {
+    let single = paths.len() == 1;
+    let one_directory = single && paths[0].is_dir();
+    let one_archive = single && super::files::is_zip(&paths[0]);
+    let files_only = paths.iter().all(|path| path.is_file());
+
+    if files_only {
+        menu = menu.item(item("Open with…", IconName::AppWindow, Command::ChooseApplication, owner.clone()));
+    }
+    if single || files_only {
+        menu = menu.item(item("Open", IconName::Folder, Command::Open, owner.clone()));
+    }
+    if single && paths[0].is_file() {
+        menu = menu.item(item("Quick preview", IconName::Eye, Command::Preview, owner.clone()));
+    }
+    if one_archive {
+        menu = menu.item(item("Extract to folder", IconName::Archive, Command::ExtractZip, owner.clone()));
+    }
+    if one_directory {
+        menu = menu.item(item("Add to bookmarks", IconName::Bookmark, Command::Bookmark, owner.clone()));
+    }
+    menu = menu.separator()
+        .item(item("Toggle Starred", IconName::Star, Command::ToggleStar, owner.clone()))
+        .item(item("Cut", IconName::Scissors, Command::Cut, owner.clone()))
+        .item(item("Copy", IconName::Copy, Command::Copy, owner.clone()));
+    if single {
+        menu = menu.item(item("Create symbolic link…", IconName::Link, Command::CreateLink, owner.clone()))
+            .item(item("Rename…", IconName::Pencil, Command::Rename, owner.clone()));
+    } else {
+        menu = menu.item(item("Batch rename…", IconName::Pencil, Command::BatchRename, owner.clone()));
+    }
+    menu.separator()
+        .item(item("Move to trash", IconName::Trash, Command::Trash, owner.clone()))
+        .item(item("Delete permanently…", IconName::Trash, Command::Delete, owner.clone()))
 }
