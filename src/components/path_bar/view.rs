@@ -49,10 +49,11 @@ fn breadcrumbs(state: &MainWindow, surface: Hsla, cx: &mut Context<MainWindow>) 
     let muted = cx.theme().muted_foreground;
     let mut crumbs: Vec<AnyElement> = Vec::new();
     let base_target = base.to_path_buf();
+    let base_active = state.current_dir == base;
     crumbs.push(div().id("breadcrumb-base").px(px(8.)).py(px(4.)).rounded(cx.theme().radius)
         .flex().items_center().gap(px(5.)).cursor_pointer()
-        .when(state.current_dir == base, |crumb| crumb.bg(surface))
-        .hover(|style| style.bg(surface))
+        .when(base_active, |crumb| crumb.bg(cx.theme().primary.opacity(0.20)).text_color(cx.theme().primary))
+        .hover(|style| style.bg(if base_active {cx.theme().primary.opacity(0.28)} else {surface}))
         .child(Icon::new(base_icon).size(px(13.))).child(base_label)
         .on_click(cx.listener(move |state,event: &ClickEvent,window,cx| {
             if event.click_count() == 1 {state.navigate_to(base_target.clone(),window,cx);}
@@ -65,10 +66,11 @@ fn breadcrumbs(state: &MainWindow, surface: Hsla, cx: &mut Context<MainWindow>) 
             let target = path.clone();
             let active = target == state.current_dir;
             crumbs.push(div().text_color(muted).child(Icon::new(IconName::ChevronRight).size(px(12.))).into_any_element());
+            let primary = cx.theme().primary;
             crumbs.push(div().id(format!("breadcrumb-{index}")).px(px(8.)).py(px(4.))
                 .rounded(cx.theme().radius).cursor_pointer()
-                .when(active, |crumb| crumb.bg(surface))
-                .hover(|style| style.bg(surface))
+                .when(active, |crumb| crumb.bg(primary.opacity(0.20)).text_color(primary))
+                .hover(|style| style.bg(if active {primary.opacity(0.28)} else {surface}))
                 .child(part.as_os_str().to_string_lossy().into_owned())
                 .on_click(cx.listener(move |state,event: &ClickEvent,window,cx| {
                     if event.click_count() == 1 {state.navigate_to(target.clone(),window,cx);}

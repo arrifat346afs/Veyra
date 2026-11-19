@@ -8,7 +8,7 @@ pub fn topbar(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
         .child(menu::sidebar_toggle(state.preferences.foreground_alpha(), cx))
         .child(navigation::navigation(state, cx))
         .child(search::search(state, cx))
-        .child(views::views(state.preferences.foreground_alpha(), cx))
+        .child(views::views(state.list_view, state.column_view, state.view_menu_open, state.preferences.foreground_alpha(), cx))
         .child(sorting::sorting(state, cx))
         .child(super::settings_button::settings_button(state.preferences.foreground_alpha(), cx))
         .into_any_element()

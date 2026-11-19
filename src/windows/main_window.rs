@@ -24,6 +24,7 @@ pub struct MainWindow {
     pub(crate) preferences: crate::settings::preferences::Preferences,
     pub(crate) settings_window: Option<AnyWindowHandle>,
     pub(crate) settings_page: usize,
+    pub(crate) view_menu_open: bool,
     pub(crate) settings_search: Entity<InputState>,
     pub(crate) custom_theme_path: Entity<InputState>,
     pub(crate) settings_error: Option<String>,
@@ -39,6 +40,8 @@ pub struct MainWindow {
     pub(crate) back_history: Vec<PathBuf>,
     pub(crate) forward_history: Vec<PathBuf>,
     pub(crate) list_view: bool,
+    pub(crate) column_view: bool,
+    pub(crate) column_paths: Vec<PathBuf>,
     pub(crate) reverse_sort: bool,
     pub(crate) show_sidebar: bool,
     pub(crate) show_hidden: bool,
@@ -130,7 +133,7 @@ impl MainWindow {
                 let settings_sliders = crate::settings::sliders::create(&preferences,cx);
                 let theme_watch = crate::settings::theme_watch::start(cx);
                 Self { quick_preview:Default::default(), application_chooser:None, portal_settings:Default::default(), picker, _theme_watch:theme_watch, theme_error:None, batch_rename:None, file_dialog:None, file_operation_busy:false, cut_clipboard:None, path_bar, thumbnail_generation: 0, selection: Default::default(), settings_sliders, settings_window:None,settings_page:0,settings_search,settings_error,
-                    focus, current_dir, entries, error, search, back_history: vec![], forward_history: vec![], list_view: preferences.list_view, reverse_sort: preferences.reverse_sort, show_sidebar: preferences.show_sidebar, show_hidden: preferences.show_hidden, custom_theme_path, preferences }
+                    focus, current_dir: current_dir.clone(), entries, error, search, back_history: vec![], forward_history: vec![], list_view: preferences.list_view, column_view: preferences.column_view, column_paths: vec![current_dir], view_menu_open:false, reverse_sort: preferences.reverse_sort, show_sidebar: preferences.show_sidebar, show_hidden: preferences.show_hidden, custom_theme_path, preferences }
             });
             // Override the component root’s opaque background so pane alpha reaches the compositor.
             cx.new(|cx| gpui_kit::base::Root::new(view,window,cx).bg(rgba(0x00000000)))
@@ -139,6 +142,8 @@ impl MainWindow {
 
     pub(crate) fn apply_preferences(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.list_view=self.preferences.list_view;
+        self.column_view=self.preferences.column_view;
+        if self.column_view { self.column_paths=vec![self.current_dir.clone()]; }
         self.reverse_sort=self.preferences.reverse_sort;
         self.show_hidden=self.preferences.show_hidden;
         self.show_sidebar=self.preferences.show_sidebar;
@@ -159,6 +164,32 @@ impl MainWindow {
         }
         crate::settings::rounding::apply(self.preferences.corner_radius, cx);
         self.settings_error=self.preferences.save().err();
+        cx.notify();
+    }
+    pub(crate) fn set_view_mode(&mut self, mode: usize, cx: &mut Context<Self>) {
+        self.list_view = mode == 1;
+        self.column_view = mode == 2;
+        self.preferences.list_view = self.list_view;
+        self.preferences.column_view = self.column_view;
+        if self.column_view { self.column_paths = vec![self.current_dir.clone()]; }
+        self.view_menu_open = false;
+        self.settings_error = self.preferences.save().err();
+        cx.notify();
+    }
+    pub(crate) fn cycle_view_mode(&mut self, cx: &mut Context<Self>) {
+        let current = if self.column_view {2} else if self.list_view {1} else {0};
+        self.set_view_mode((current + 1) % 3, cx);
+    }
+    pub(crate) fn open_column(&mut self, path: PathBuf, parent_column: usize, window: &mut Window, cx: &mut Context<Self>) {
+        self.path_bar.cancel();
+        self.focus.focus(window, cx);
+        self.column_paths.truncate(parent_column + 1);
+        self.column_paths.push(path.clone());
+        let (entries, error) = read_directory(&path);
+        self.current_dir = path;
+        self.entries = entries;
+        self.error = error;
+        self.selection.cursor = None;
         cx.notify();
     }
     /// Switch the active location and reload its visible entries.
@@ -192,6 +223,7 @@ impl MainWindow {
         self.selection = Default::default();
         self.thumbnail_generation = self.thumbnail_generation.wrapping_add(1);
         self.current_dir = path;
+        self.column_paths = vec![self.current_dir.clone()];
         self.entries = entries;
         self.error = error;
         cx.notify();
@@ -235,7 +267,7 @@ impl Render for MainWindow {
         let toolbar = topbar::topbar(self, cx);
         let path_bar = crate::components::path_bar::view(self, cx);
         self.selection.geometry.borrow_mut().items.clear();
-        self.selection.selected.retain(|path| visible.contains(path));
+        if !self.column_view { self.selection.selected.retain(|path| visible.contains(path)); }
         if self.selection.cursor.as_ref().is_some_and(|path| !visible.contains(path)) {
             self.selection.cursor = None;
         }
@@ -245,6 +277,10 @@ impl Render for MainWindow {
             &visible,
             self.error.as_deref(),
             self.list_view,
+            self.column_view,
+            &self.column_paths,
+            self.show_hidden,
+            &query,
             &self.preferences,
             &self.selection,
             self.thumbnail_generation,

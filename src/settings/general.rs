@@ -1,6 +1,6 @@
 use super::{controls::{Setting,Control},preferences::Preferences};
 pub fn items(p: &Preferences) -> Vec<Setting> { vec![
-Setting {title:"Default view",description:"Choose grid or list view.",control:Control::Choice {labels:&["Grid","List"],selected:usize::from(p.list_view),set:|p,index| p.list_view=index==1}},
+Setting {title:"Default view",description:"Choose grid, list, or column view.",control:Control::Choice {labels:&["Grid","List","Columns"],selected:if p.column_view {2} else {usize::from(p.list_view)},set:|p,index| {p.list_view=index==1;p.column_view=index==2}}},
 Setting {title:"Show hidden files",description:"Show dotfiles by default. Ctrl+H toggles this per window.",control:Control::Toggle {checked:p.show_hidden, set:|p,value| p.show_hidden=value}},
 Setting {title:"Sort by",description:"Choose the file ordering criterion.",control:Control::Choice {labels:&["Name","Size","Modified","Type"],selected:p.sort_by.min(3),set:|p,index| p.sort_by=index}},
 Setting {title:"Descending order",description:"Reverse the selected sort order.",control:Control::Toggle {checked:p.reverse_sort, set:|p,value| p.reverse_sort=value}},

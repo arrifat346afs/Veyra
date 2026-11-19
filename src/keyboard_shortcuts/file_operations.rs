@@ -51,6 +51,31 @@ pub(super) fn handle(
         shift: true,
         ..Default::default()
     };
+    if m == ctrl || m == ctrl_shift {
+        let adjustment = match key {
+            "+" | "=" | "equal" | "kp_add" | "add" => Some(16isize),
+            "-" | "minus" | "kp_subtract" | "subtract" => Some(-16isize),
+            "0" | "kp_0" => Some(0isize),
+            _ => None,
+        };
+        if let Some(adjustment) = adjustment {
+            if !event.is_held {
+                let size = if adjustment == 0 {
+                    112
+                } else {
+                    (state.preferences.icon_size as isize + adjustment).clamp(48, 192) as usize
+                };
+                state.preferences.icon_size = size;
+                if let Some(slider) = state.settings_sliders.first() {
+                    slider.update(cx, |slider, cx| slider.set_value(size as f32, window, cx));
+                }
+                state.settings_error = state.preferences.save().err();
+                cx.notify();
+            }
+            cx.stop_propagation();
+            return true;
+        }
+    }
     let command = if m == ctrl {
         match key {
             "c" => Some(Command::Copy),
@@ -61,8 +86,16 @@ pub(super) fn handle(
             "f2" => Some(Command::BatchRename),
             _ => None,
         }
-    } else if m == ctrl_shift && key == "n" {
-        Some(Command::NewFolder)
+    } else if m == ctrl_shift {
+        match key {
+            "n" => Some(Command::NewFolder),
+            "v" => {
+                if !event.is_held { state.cycle_view_mode(cx); }
+                cx.stop_propagation();
+                return true;
+            }
+            _ => None,
+        }
     } else if m
         == (Modifiers {
             shift: true,

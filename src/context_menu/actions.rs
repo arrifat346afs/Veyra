@@ -22,6 +22,7 @@ pub enum Command {
     ChooseApplication,
     Preview,
     Properties,
+    ExtractZip,
     Copy,
     Cut,
     Rename,
@@ -145,6 +146,15 @@ pub fn run(
                 files::trash(&paths).map_err(|e| e.to_string())
             });
         }
+        Command::ExtractZip => {
+            let paths = selected(state);
+            if paths.len() != 1 || !super::files::is_zip(&paths[0]) { return; }
+            let archive = paths[0].clone();
+            let destination = super::files::zip_destination(&archive);
+            perform(state, window, cx, move || {
+                super::files::extract_zip_to_folder(&archive, &destination)
+            });
+        }
         Command::Delete => {
             let paths = selected(state);
             if paths.is_empty() {
@@ -199,6 +209,12 @@ pub fn run(
             let paths = targets(state);
             if paths.len() == 1 && paths[0].is_dir() {
                 state.navigate_to(paths[0].clone(), window, cx);
+            } else if paths.len() == 1 && super::files::is_zip(&paths[0]) {
+                let archive = paths[0].clone();
+                let destination = super::files::zip_destination(&archive);
+                perform_and_navigate(state, window, cx, destination.clone(), move || {
+                    super::files::extract_zip_to_folder(&archive, &destination)
+                });
             } else {
                 for path in paths {
                     cx.open_with_system(&path);
@@ -300,6 +316,28 @@ pub fn perform(
         });
     })
     .detach();
+}
+
+fn perform_and_navigate(
+    state: &mut MainWindow,
+    window: &mut Window,
+    cx: &mut Context<MainWindow>,
+    destination: PathBuf,
+    job: impl FnOnce() -> Result<(), String> + Send + 'static,
+) {
+    state.file_operation_busy = true;
+    cx.notify();
+    let executor = cx.background_executor().clone();
+    cx.spawn_in(window, async move |state, cx| {
+        let result = executor.spawn(async move { job() }).await;
+        let _ = state.update_in(cx, |state, window, cx| {
+            state.file_operation_busy = false;
+            match result {
+                Ok(()) => state.navigate_to(destination, window, cx),
+                Err(error) => message(state, "Could not open ZIP archive", error, window, cx),
+            }
+        });
+    }).detach();
 }
 
 /// Shared by the folder menu and sidebar drop target. Saving a shortcut never

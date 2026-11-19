@@ -4,7 +4,7 @@ use std::{fs, path::PathBuf};
 #[serde(default)]
 pub struct Preferences {
     pub show_thumbnails: bool,
-    pub list_view: bool, pub show_hidden: bool, pub reverse_sort: bool,
+    pub list_view: bool, pub column_view: bool, pub show_hidden: bool, pub reverse_sort: bool,
     pub folders_first: bool, pub sort_by: usize, pub icon_size: usize,
     pub density: usize, pub filename_size: usize, pub show_sizes: bool,
     pub case_sensitive: bool, pub show_sidebar: bool,
@@ -15,7 +15,7 @@ pub struct Preferences {
     pub corner_radius: usize,
 }
 impl Default for Preferences {
-    fn default() -> Self { Self { show_thumbnails:true, list_view:false, show_hidden:false, reverse_sort:false,
+    fn default() -> Self { Self { show_thumbnails:true, list_view:false, column_view:false, show_hidden:false, reverse_sort:false,
         folders_first:true, sort_by:0, icon_size:112, density:1, filename_size:12,
         show_sizes:true, case_sensitive:false, show_sidebar:true,
         light_theme:false, home_start:false, custom_theme_path:String::new(), custom_theme_enabled:false, window_opacity:100, sidebar_opacity:100, corner_radius:8 } }

@@ -129,6 +129,9 @@ existing release.
 | Shortcut | Action |
 | --- | --- |
 | `Ctrl+Shift+N` | Create a folder |
+| `Ctrl+Shift+V` | Cycle grid, list, and column views |
+| `Ctrl++` / `Ctrl+-` | Increase / decrease content icon size |
+| `Ctrl+0` | Reset content icon size |
 | `Ctrl+C` / `Ctrl+X` / `Ctrl+V` | Copy / cut / paste |
 | `Ctrl+A` | Select all visible files |
 | `F2` | Rename the selected item |
