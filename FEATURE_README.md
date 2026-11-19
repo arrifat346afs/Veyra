@@ -30,10 +30,10 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 | Parent folder navigation | ✅ | Backspace shortcut. |
 | Breadcrumb navigation | ✅ | Clickable path segments. |
 | Editable path bar | ✅ | Double-click the path; type a path and use folder suggestions. |
-| Multiple tabs | ✅ | Ctrl+T opens a tab. The tab strip appears when the window has multiple tabs; use it to switch tabs, open another tab, or close the active tab. Ctrl+Tab also switches tabs, and Ctrl+W closes the active tab. Each tab restores its last folder. |
+| Multiple tabs | ✅ | Ctrl+T opens a tab. With multiple tabs, a strip in the main pane above the toolbar lets you switch tabs, close any tab, or add one from the far right; the sidebar stays in place. Ctrl+Tab switches tabs, and Ctrl+W closes the active tab. Each tab restores its last folder. |
 | Multiple windows | ✅ | The new-window control or Ctrl+N opens an independent file-browser window at the current folder. Settings and picker windows remain available. |
 | Keyboard shortcuts | ✅ | Navigation, selection, view, file operations, hidden files, and settings shortcuts are available. See the existing README. |
-| Recent files | ✅ | Sidebar view records up to 100 recently opened files and keeps the list across launches. Missing files are omitted. |
+| Recent files | ✅ | Sidebar view records up to 100 files opened directly or with an application and keeps the list across launches. Missing files are omitted. |
 | Starred files | ✅ | Toggle Starred from an item’s context menu; the sidebar view persists starred files and folders across launches. |
 | Hidden files | ✅ | Toggle dotfiles with Ctrl+H or the context menu; preference is stored. |
 
@@ -45,6 +45,7 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 | Custom bookmarks | ✅ | Persistent app-owned bookmarks; first run can import GTK bookmarks. |
 | Add bookmarks | ✅ | Context menu or drag a folder to the sidebar. |
 | Remove bookmarks | ✅ | Remove control on each bookmark row. |
+| Open sidebar locations in a new tab or window | ✅ | Right-click a place or bookmark to open it in a new tab or window. |
 | Rename bookmarks | ❌ | Names are derived from the folder name. |
 | Reorder bookmarks | ❌ | No reorder interaction or ordering controls. |
 | Mounted drives | ❌ | No device discovery or drive list. |

@@ -120,6 +120,7 @@ fn launch(state: &mut MainWindow, window: &mut Window, cx: &mut Context<MainWind
     chooser.launching = true;
     chooser.error = None;
     let paths = chooser.paths.clone();
+    let recent_paths = paths.clone();
     let search = chooser.search.clone();
     let executor = cx.background_executor().clone();
     cx.spawn_in(window, async move |state, cx| {
@@ -135,7 +136,12 @@ fn launch(state: &mut MainWindow, window: &mut Window, cx: &mut Context<MainWind
             }
             chooser.launching = false;
             match result {
-                Ok(()) => close(state, window, cx),
+                Ok(()) => {
+                    for path in &recent_paths {
+                        crate::services::navigation::record_recent(path);
+                    }
+                    close(state, window, cx)
+                }
                 Err(error) => {
                     chooser.error = Some(error);
                     cx.notify();

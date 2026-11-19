@@ -1,6 +1,7 @@
 use gpui_kit::*;
 use gpui_kit::prelude::*;
 use gpui_kit::component::ActiveTheme as _;
+use gpui_kit::component::tooltip::Tooltip;
 use crate::windows::MainWindow;
 use super::{navigation, search, views, sorting, menu};
 use gpui_kit_assets::IconName;
@@ -25,7 +26,9 @@ pub fn topbar(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
         .child(search::search(state, cx))
         .child(views::views(state.list_view, state.column_view, state.view_menu_open, state.preferences.foreground_alpha(), cx))
         .child(sorting::sorting(state, cx))
-        .child(div().id("new-window").px(px(8.)).py(px(6.)).rounded(cx.theme().radius).cursor_pointer().child("▣")
+        .child(super::button::button("new-window", IconName::AppWindow, "", state.preferences.foreground_alpha(), cx)
+            .aria_label("Open current folder in a new window")
+            .tooltip(|window, cx| Tooltip::new("Open current folder in a new window").build(window, cx))
             .on_click(cx.listener(|s, _, _, cx| crate::windows::MainWindow::open_at(s.current_dir.clone(), cx))))
         .child(super::settings_button::settings_button(state.preferences.foreground_alpha(), cx))
         .into_any_element()

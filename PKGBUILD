@@ -1,7 +1,7 @@
 # Maintainer: Ar Rifat <arrifat346afs@users.noreply.github.com>
 
 pkgname=veyra
-pkgver=0.1.0
+pkgver=0.1.1
 pkgrel=1
 pkgdesc="A file manager for Linux built with GPUI"
 arch=('x86_64')

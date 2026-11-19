@@ -101,7 +101,7 @@ Pull requests build the app and upload a workflow artifact. Pushes to `main`
 do not trigger builds. To publish a GitHub Release, manually run **Build Linux**
 from the Actions page.
 That manual run publishes a `v`-prefixed package version (for example,
-`v0.1.0`), the application archive, an AppImage, and an Arch package
+`v0.1.1`), the application archive, an AppImage, and an Arch package
 (`.pkg.tar.zst`), with SHA-256 checksums. The workflow reads the version from
 `Cargo.toml`; update that version when you want to publish a new release.
 Manual builds for the same version update that release's assets.
@@ -109,8 +109,8 @@ Manual builds for the same version update that release's assets.
 For a named version release, push a version tag instead:
 
 ```sh
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.1.1
+git push origin v0.1.1
 ```
 
 The workflow uses the version tag as the release tag when building a tag.

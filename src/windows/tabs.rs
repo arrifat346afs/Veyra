@@ -21,6 +21,14 @@ impl Tabs {
 }
 
 impl MainWindow {
+    pub(crate) fn open_in_new_tab(&mut self, path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
+        self.tabs.locations.push(path.clone());
+        self.tabs.active = self.tabs.locations.len() - 1;
+        self.back_history.clear();
+        self.forward_history.clear();
+        self.load_directory(path, window, cx);
+    }
+
     pub(crate) fn new_tab(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.tabs.locations.push(self.current_dir.clone());
         self.tabs.active = self.tabs.locations.len() - 1;
@@ -38,11 +46,24 @@ impl MainWindow {
     }
 
     pub(crate) fn close_tab(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.tabs.locations.len() <= 1 {
+        self.close_tab_at(self.tabs.active, window, cx);
+    }
+
+    pub(crate) fn close_tab_at(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
+        if index >= self.tabs.locations.len() { return; }
+        if self.tabs.locations.len() == 1 {
             window.remove_window();
             return;
         }
-        self.tabs.locations.remove(self.tabs.active);
+        let was_active = index == self.tabs.active;
+        self.tabs.locations.remove(index);
+        if index < self.tabs.active {
+            self.tabs.active -= 1;
+        }
+        if !was_active {
+            cx.notify();
+            return;
+        }
         self.tabs.active = self.tabs.active.min(self.tabs.locations.len() - 1);
         let path = self.tabs.locations[self.tabs.active].clone();
         self.back_history.clear();

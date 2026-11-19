@@ -8,7 +8,7 @@
 use std::{fs, path::PathBuf};
 
 use gpui_kit::*;
-use gpui_kit::prelude::*;
+use gpui_kit::prelude::FluentBuilder;
 use gpui_kit::component::{ActiveTheme as _, Theme, ThemeRegistry};
 
 use crate::layouts::{content, sidebar, topbar};
@@ -350,14 +350,14 @@ impl Render for MainWindow {
         } else {
             body = body.pl(px(12.));
         }
-        let mut root = div().relative().size_full().rounded(palette.radius).overflow_hidden().text_color(palette.foreground)
+        let mut root = div().relative().size_full().flex().flex_col().rounded(palette.radius).overflow_hidden().text_color(palette.foreground)
             .bg(palette.muted.opacity(self.preferences.window_opacity.min(100) as f32 / 100.))
-            .child(frame.background(palette.background.opacity(self.preferences.foreground_alpha()), palette.radius))
-            .child(body.child(div().flex_1().min_w(px(0.)).h_full().flex().flex_col()
-                .child(toolbar)
-                .when(self.tabs.len() > 1, |column| column.child(crate::layouts::tabs::view(self, cx)))
-                .child(workspace)
-                .children(self.picker.as_ref().map(|_| crate::picker::footer(self,cx)))));
+            .child(frame.background(palette.background.opacity(self.preferences.foreground_alpha()), palette.radius));
+        root = root.child(body.child(div().flex_1().min_h(px(0.)).min_w(px(0.)).h_full().flex().flex_col()
+            .when(self.tabs.len() > 1, |column| column.child(crate::layouts::tabs::view(self, cx)))
+            .child(toolbar)
+            .child(workspace)
+            .children(self.picker.as_ref().map(|_| crate::picker::footer(self,cx)))));
         if self.path_bar.editing { root = root.child(crate::components::path_bar::suggestions_overlay(self,window_width,cx)); }
         if self.file_operation_busy && self.file_dialog.is_none() {
             let status = self.file_operation_progress.as_ref().map(|progress| {

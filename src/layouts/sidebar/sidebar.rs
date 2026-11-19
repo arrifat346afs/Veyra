@@ -7,9 +7,10 @@
 
 use std::path::{Path, PathBuf};
 
-use gpui_kit::{div, px, Context, ExternalPaths, IntoElement, ParentElement, Styled};
+use gpui_kit::{div, px, Context, ExternalPaths, IntoElement, ParentElement, Styled, WeakEntity};
 use gpui_kit::prelude::*;
 use gpui_kit::component::{ActiveTheme as _, Icon};
+use gpui_kit::component::menu::{ContextMenuExt, PopupMenuItem};
 use gpui_kit_assets::IconName;
 
 use crate::{services::bookmarks, windows::MainWindow};
@@ -84,6 +85,7 @@ pub fn sidebar(current_dir: &Path, cx: &mut Context<MainWindow>) -> impl IntoEle
                         }
                         cx.notify();
                     })))
+                .context_menu(sidebar_menu(bookmark.path.clone(), true, cx.entity().downgrade()))
         }))
 }
 
@@ -96,6 +98,7 @@ fn location_row(label: &'static str, icon: IconName, path: PathBuf,
     let selected = current_dir == path;
     let palette = cx.theme().clone();
     let foreground = palette.foreground;
+    let menu_path = path.clone();
     div().id(format!("place-{label}")).h(px(42.0)).flex_shrink_0().w_full().flex().items_center()
         .gap(px(12.0)).px(px(14.0)).rounded(cx.theme().radius)
         .text_color(foreground).cursor_pointer()
@@ -122,4 +125,36 @@ fn location_row(label: &'static str, icon: IconName, path: PathBuf,
         .child(div().w(px(20.0)).text_color(if selected {foreground} else {palette.muted_foreground})
             .child(Icon::new(icon).size(px(18.0))))
         .child(div().text_ellipsis().child(label))
+        .context_menu(sidebar_menu(menu_path, false, cx.entity().downgrade()))
+}
+
+fn sidebar_menu(path: PathBuf, bookmark: bool, owner: WeakEntity<MainWindow>) -> impl Fn(gpui_kit::component::menu::PopupMenu, &mut gpui_kit::Window, &mut Context<gpui_kit::component::menu::PopupMenu>) -> gpui_kit::component::menu::PopupMenu + 'static {
+    move |menu, _, _| {
+        let tab_owner = owner.clone();
+        let tab_path = path.clone();
+        let window_owner = owner.clone();
+        let window_path = path.clone();
+        let mut menu = menu
+            .item(PopupMenuItem::element(|_, _| div().h(px(36.)).pr(px(8.)).flex().items_center().child("Open in new tab"))
+                .icon(Icon::new(IconName::Folder).mx(px(4.)).my(px(12.)))
+                .on_click(move |_, window, cx| {
+                    let _ = tab_owner.update(cx, |state, cx| state.open_in_new_tab(tab_path.clone(), window, cx));
+                }))
+            .item(PopupMenuItem::element(|_, _| div().h(px(36.)).pr(px(8.)).flex().items_center().child("Open in new window"))
+                .icon(Icon::new(IconName::AppWindow).mx(px(4.)).my(px(12.)))
+                .on_click(move |_, _, cx| {
+                    let _ = window_owner.update(cx, |_, cx| crate::windows::MainWindow::open_at(window_path.clone(), cx));
+                }));
+        if bookmark {
+            let remove_owner = owner.clone();
+            let remove_path = path.clone();
+            menu = menu.item(PopupMenuItem::element(|_, _| div().h(px(36.)).pr(px(8.)).flex().items_center().child("Remove bookmark"))
+                .icon(Icon::new(IconName::Bookmark).mx(px(4.)).my(px(12.)))
+                .on_click(move |_, _, cx| {
+                    if let Err(error) = bookmarks::remove_bookmark(&remove_path) { eprintln!("Could not remove bookmark: {error}"); }
+                    let _ = remove_owner.update(cx, |_, cx| cx.notify());
+                }));
+        }
+        menu
+    }
 }
