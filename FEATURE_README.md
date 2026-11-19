@@ -16,7 +16,7 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 | Delete and restore files | ✅ | Move items to desktop Trash, restore them to their original locations, or permanently delete them. |
 | Trash management | ✅ | Browse Trash, restore selected items, permanently delete selected items, or empty Trash. |
 | Permanent deletion | ✅ | Confirmation before deletion. |
-| Undo and redo | ❌ | No operation history or undo/redo commands. |
+| Undo and redo | 🟡 | Ctrl+Z / Ctrl+Y or toolbar buttons reverse and replay create, rename, copy/paste, move, trash/restore, and ZIP extraction. Permanent deletion, emptying Trash, and batch rename are not undoable. |
 | Create symbolic links | 🟡 | “Paste as link” creates a symbolic link to copied paths; no general link wizard. |
 | Drag and drop | 🟡 | Internal drag of selected items onto folders moves them; dragging a folder onto the sidebar bookmarks it. General desktop/file-URI drag-and-drop is not evident. |
 | File operation progress | 🟡 | Shows a generic “Working…” indicator while an operation runs; no measured progress or per-item status. |

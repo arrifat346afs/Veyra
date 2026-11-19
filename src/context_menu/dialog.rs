@@ -113,15 +113,25 @@ pub fn submit(state: &mut MainWindow, window: &mut Window, cx: &mut Context<Main
             return;
         }
     }
-    super::actions::perform(state, window, cx, move || {
+    super::actions::perform_recorded(state, window, cx, move || {
         match kind {
             Kind::Create { directory, folder } => {
-                super::files::create(&directory.join(name), folder)
+                let path = directory.join(name);
+                super::files::create(&path, folder).map(|()| Some(super::files::HistoryRecord {
+                    undo: super::files::HistoryAction::Remove(vec![path.clone()]),
+                    redo: super::files::HistoryAction::Create { path, folder },
+                }))
             }
-            Kind::Rename(source) => super::files::rename(&source, &source.with_file_name(name)),
-            Kind::Delete(paths) => super::files::delete(&paths),
-            Kind::EmptyTrash => super::files::empty_trash(),
-            Kind::Message | Kind::PickerOverwrite(_) => Ok(()),
+            Kind::Rename(source) => {
+                let destination = source.with_file_name(name);
+                super::files::rename(&source, &destination).map(|()| Some(super::files::HistoryRecord {
+                    undo: super::files::HistoryAction::Move(vec![(destination.clone(), source.clone())]),
+                    redo: super::files::HistoryAction::Move(vec![(source, destination)]),
+                }))
+            }
+            Kind::Delete(paths) => super::files::delete(&paths).map(|()| None),
+            Kind::EmptyTrash => super::files::empty_trash().map(|()| None),
+            Kind::Message | Kind::PickerOverwrite(_) => Ok(None),
         }
         .map_err(|e| e.to_string())
     });

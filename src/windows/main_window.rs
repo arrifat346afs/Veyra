@@ -35,6 +35,8 @@ pub struct MainWindow {
     pub(crate) batch_rename: Option<crate::batch_rename::BatchRename>,
     pub(crate) file_dialog: Option<crate::context_menu::dialog::Dialog>,
     pub(crate) file_operation_busy: bool,
+    pub(crate) undo_history: Vec<crate::context_menu::files::HistoryRecord>,
+    pub(crate) redo_history: Vec<crate::context_menu::files::HistoryRecord>,
     pub(crate) cut_clipboard: Option<String>,
     pub(crate) search: Entity<InputState>,
     pub(crate) back_history: Vec<PathBuf>,
@@ -132,7 +134,7 @@ impl MainWindow {
                 });
                 let settings_sliders = crate::settings::sliders::create(&preferences,cx);
                 let theme_watch = crate::settings::theme_watch::start(cx);
-                Self { quick_preview:Default::default(), application_chooser:None, portal_settings:Default::default(), picker, _theme_watch:theme_watch, theme_error:None, batch_rename:None, file_dialog:None, file_operation_busy:false, cut_clipboard:None, path_bar, thumbnail_generation: 0, selection: Default::default(), settings_sliders, settings_window:None,settings_page:0,settings_search,settings_error,
+                Self { quick_preview:Default::default(), application_chooser:None, portal_settings:Default::default(), picker, _theme_watch:theme_watch, theme_error:None, batch_rename:None, file_dialog:None, file_operation_busy:false, undo_history:vec![], redo_history:vec![], cut_clipboard:None, path_bar, thumbnail_generation: 0, selection: Default::default(), settings_sliders, settings_window:None,settings_page:0,settings_search,settings_error,
                     focus, current_dir: current_dir.clone(), entries, error, search, back_history: vec![], forward_history: vec![], list_view: preferences.list_view, column_view: preferences.column_view, column_paths: vec![current_dir], view_menu_open:false, reverse_sort: preferences.reverse_sort, show_sidebar: preferences.show_sidebar, show_hidden: preferences.show_hidden, custom_theme_path, preferences }
             });
             // Override the component root’s opaque background so pane alpha reaches the compositor.

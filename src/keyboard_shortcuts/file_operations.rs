@@ -83,12 +83,15 @@ pub(super) fn handle(
             "v" => Some(Command::Paste),
             "a" => Some(Command::SelectAll),
             "r" => Some(Command::Reload),
+            "z" => Some(Command::Undo),
+            "y" => Some(Command::Redo),
             "f2" => Some(Command::BatchRename),
             _ => None,
         }
     } else if m == ctrl_shift {
         match key {
             "n" => Some(Command::NewFolder),
+            "z" => Some(Command::Redo),
             "v" => {
                 if !event.is_held { state.cycle_view_mode(cx); }
                 cx.stop_propagation();

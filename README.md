@@ -133,6 +133,7 @@ existing release.
 | `Ctrl++` / `Ctrl+-` | Increase / decrease content icon size |
 | `Ctrl+0` | Reset content icon size |
 | `Ctrl+C` / `Ctrl+X` / `Ctrl+V` | Copy / cut / paste |
+| `Ctrl+Z` / `Ctrl+Y` / `Ctrl+Shift+Z` | Undo / redo |
 | `Ctrl+A` | Select all visible files |
 | `F2` | Rename the selected item |
 | `Delete` | Move selected items to trash |

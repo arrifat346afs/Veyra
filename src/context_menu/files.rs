@@ -33,6 +33,11 @@ pub fn create(path: &Path, folder: bool) -> io::Result<()> {
 }
 
 pub fn paste(sources: &[PathBuf], directory: &Path, link: bool) -> io::Result<()> {
+    paste_with_receipt(sources, directory, link).map(|_| ())
+}
+
+pub fn paste_with_receipt(sources: &[PathBuf], directory: &Path, link: bool) -> io::Result<Vec<PathBuf>> {
+    let mut created = Vec::new();
     for source in sources {
         let name = source
             .file_name()
@@ -63,12 +68,13 @@ pub fn paste(sources: &[PathBuf], directory: &Path, link: bool) -> io::Result<()
             return Err(io::Error::other("Cannot paste a folder inside itself"));
         }
         if link {
-            std::os::unix::fs::symlink(source, target)?;
+            std::os::unix::fs::symlink(source, &target)?;
         } else {
             copy(source, &target)?;
         }
+        created.push(target);
     }
-    Ok(())
+    Ok(created)
 }
 
 fn duplicate_name(directory: &Path, name: &std::ffi::OsStr) -> PathBuf {
@@ -223,6 +229,104 @@ pub fn trash(paths: &[PathBuf]) -> io::Result<()> {
 
 pub const TRASH_URI: &str = "trash:///";
 
+#[derive(Clone)]
+pub enum HistoryAction {
+    Remove(Vec<PathBuf>),
+    Move(Vec<(PathBuf, PathBuf)>),
+    Copy(Vec<(PathBuf, PathBuf)>),
+    Link(Vec<(PathBuf, PathBuf)>),
+    Create { path: PathBuf, folder: bool },
+    Extract { archive: PathBuf, destination: PathBuf },
+    Trash(Vec<PathBuf>),
+    Restore(Vec<PathBuf>),
+}
+
+#[derive(Clone)]
+pub struct HistoryRecord {
+    pub undo: HistoryAction,
+    pub redo: HistoryAction,
+}
+
+pub fn apply_history_action(action: &HistoryAction) -> io::Result<()> {
+    match action {
+        HistoryAction::Remove(paths) => {
+            for path in paths {
+                if path.to_string_lossy().starts_with("trash://") {
+                    delete_trash_file(&gio::File::for_uri(&path.to_string_lossy()))?;
+                } else {
+                    delete(&[path.clone()])?;
+                }
+            }
+            Ok(())
+        }
+        HistoryAction::Move(pairs) => {
+            for (source, destination) in pairs {
+                move_exact(source, destination)?;
+            }
+            Ok(())
+        }
+        HistoryAction::Copy(pairs) => {
+            for (source, destination) in pairs {
+                copy(source, destination)?;
+            }
+            Ok(())
+        }
+        HistoryAction::Link(pairs) => {
+            for (source, destination) in pairs {
+                std::os::unix::fs::symlink(source, destination)?;
+            }
+            Ok(())
+        }
+        HistoryAction::Create { path, folder } => create(path, *folder),
+        HistoryAction::Extract { archive, destination } => extract_zip_to_folder(archive, destination)
+            .map_err(io::Error::other),
+        HistoryAction::Trash(paths) => trash(paths),
+        HistoryAction::Restore(paths) => restore_originals(paths),
+    }
+}
+
+fn move_exact(source: &Path, destination: &Path) -> io::Result<()> {
+    use gio::prelude::*;
+    if source.to_string_lossy().starts_with("trash://") {
+        return gio::File::for_uri(&source.to_string_lossy())
+            .move_(
+                &gio::File::for_path(destination),
+                gio::FileCopyFlags::NONE,
+                None::<&gio::Cancellable>,
+                None,
+            )
+            .map_err(|error| io::Error::other(error.to_string()));
+    }
+    match rename(source, destination) {
+        Ok(()) => Ok(()),
+        Err(error) if error.raw_os_error() == Some(libc::EXDEV) => {
+            copy(source, destination)?;
+            delete(&[source.to_path_buf()])
+        }
+        Err(error) => Err(error),
+    }
+}
+
+fn restore_originals(originals: &[PathBuf]) -> io::Result<()> {
+    use gio::prelude::*;
+    let entries = read_trash()?;
+    for original in originals {
+        let original_name = original.to_string_lossy();
+        let trashed = entries.iter().find_map(|entry| {
+            let file = gio::File::for_uri(&entry.to_string_lossy());
+            let info = file
+                .query_info("trash::orig-path", gio::FileQueryInfoFlags::NONE, None::<&gio::Cancellable>)
+                .ok()?;
+            (info.attribute_byte_string("trash::orig-path").as_deref() == Some(original_name.as_ref()))
+                .then_some(file)
+        }).ok_or_else(|| io::Error::other(format!("No Trash entry for {}", original.display())))?;
+        trashed
+            .move_(&gio::File::for_path(original), gio::FileCopyFlags::NONE, None::<&gio::Cancellable>, None)
+            .map_err(|error| io::Error::other(error.to_string()))?;
+    }
+    Ok(())
+}
+
 pub fn is_trash_location(path: &Path) -> bool {
     path == Path::new(TRASH_URI)
 }
@@ -248,8 +352,13 @@ pub fn read_trash() -> io::Result<Vec<PathBuf>> {
 }
 
 pub fn restore_from_trash(paths: &[PathBuf]) -> io::Result<()> {
+    let originals = originals_for_trash(paths)?;
+    restore_originals(&originals)
+}
+
+pub fn originals_for_trash(paths: &[PathBuf]) -> io::Result<Vec<PathBuf>> {
     use gio::prelude::*;
-    for path in paths {
+    paths.iter().map(|path| {
         let trashed = gio::File::for_uri(&path.to_string_lossy());
         let info = trashed
             .query_info("trash::orig-path", gio::FileQueryInfoFlags::NONE, None::<&gio::Cancellable>)
@@ -257,12 +366,8 @@ pub fn restore_from_trash(paths: &[PathBuf]) -> io::Result<()> {
         let original = info
             .attribute_byte_string("trash::orig-path")
             .ok_or_else(|| io::Error::other("Trash entry has no original location"))?;
-        let destination = gio::File::for_path(Path::new(original.as_str()));
-        trashed
-            .move_(&destination, gio::FileCopyFlags::NONE, None::<&gio::Cancellable>, None)
-            .map_err(|error| io::Error::other(error.to_string()))?;
-    }
-    Ok(())
+        Ok(PathBuf::from(original.as_str()))
+    }).collect()
 }
 
 pub fn empty_trash() -> io::Result<()> {

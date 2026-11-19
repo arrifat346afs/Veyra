@@ -31,6 +31,8 @@ pub enum Command {
     Delete,
     Restore,
     EmptyTrash,
+    Undo,
+    Redo,
 }
 fn selected(state: &MainWindow) -> Vec<PathBuf> {
     let mut paths: Vec<_> = state.selection.selected.iter().cloned().collect();
@@ -63,6 +65,16 @@ pub fn run(
         return;
     }
     match command {
+        Command::Undo => {
+            if let Some(record) = state.undo_history.pop() {
+                perform_history(state, window, cx, record, true);
+            }
+        }
+        Command::Redo => {
+            if let Some(record) = state.redo_history.pop() {
+                perform_history(state, window, cx, record, false);
+            }
+        }
         Command::Bookmark => {
             for path in selected(state).into_iter().filter(|path| path.is_dir()) {
                 if !bookmark(&path, state, window, cx) { break; }
@@ -130,11 +142,25 @@ pub fn run(
             }
             let directory = state.current_dir.clone();
             let link = matches!(command, Command::PasteLink);
-            perform(state, window, cx, move || {
+            perform_recorded(state, window, cx, move || {
                 if cut && !link {
-                    files::move_to(&paths, &directory)
+                    let pairs: Vec<_> = paths.iter().filter_map(|source| {
+                        source.file_name().map(|name| (source.clone(), directory.join(name)))
+                    }).collect();
+                    files::move_to(&paths, &directory).map(|()| {
+                        Some(files::HistoryRecord {
+                            undo: files::HistoryAction::Move(pairs.iter().map(|(from,to)| (to.clone(),from.clone())).collect()),
+                            redo: files::HistoryAction::Move(pairs),
+                        })
+                    })
                 } else {
-                    files::paste(&paths, &directory, link)
+                    files::paste_with_receipt(&paths, &directory, link).map(|created| {
+                        let pairs: Vec<_> = paths.iter().cloned().zip(created.iter().cloned()).collect();
+                        Some(files::HistoryRecord {
+                            undo: files::HistoryAction::Remove(created),
+                            redo: if link { files::HistoryAction::Link(pairs) } else { files::HistoryAction::Copy(pairs) },
+                        })
+                    })
                 }
                 .map_err(|e| e.to_string())
             });
@@ -144,18 +170,28 @@ pub fn run(
             if paths.is_empty() {
                 return;
             }
-            perform(state, window, cx, move || {
-                if paths.iter().all(|path| path.to_string_lossy().starts_with("trash://")) {
-                    files::delete_from_trash(&paths).map_err(|e| e.to_string())
-                } else {
-                    files::trash(&paths).map_err(|e| e.to_string())
-                }
+            if paths.iter().all(|path| path.to_string_lossy().starts_with("trash://")) {
+                perform(state, window, cx, move || files::delete_from_trash(&paths).map_err(|e| e.to_string()));
+                return;
+            }
+            perform_recorded(state, window, cx, move || {
+                files::trash(&paths).map(|()| Some(files::HistoryRecord {
+                    undo: files::HistoryAction::Restore(paths.clone()),
+                    redo: files::HistoryAction::Trash(paths),
+                })).map_err(|e| e.to_string())
             });
         }
         Command::Restore => {
             let paths = selected(state);
             if paths.is_empty() { return; }
-            perform(state, window, cx, move || files::restore_from_trash(&paths).map_err(|e| e.to_string()));
+            perform_recorded(state, window, cx, move || {
+                let originals = files::originals_for_trash(&paths).map_err(|e| e.to_string())?;
+                files::restore_from_trash(&paths).map_err(|e| e.to_string())?;
+                Ok(Some(files::HistoryRecord {
+                    undo: files::HistoryAction::Trash(originals.clone()),
+                    redo: files::HistoryAction::Restore(originals),
+                }))
+            });
         }
         Command::EmptyTrash => {
             dialog::show(state, Kind::EmptyTrash, "Empty Trash?", "All items in Trash will be permanently deleted.", None, window, cx);
@@ -165,8 +201,11 @@ pub fn run(
             if paths.len() != 1 || !super::files::is_zip(&paths[0]) { return; }
             let archive = paths[0].clone();
             let destination = super::files::zip_destination(&archive);
-            perform(state, window, cx, move || {
-                super::files::extract_zip_to_folder(&archive, &destination)
+            perform_recorded(state, window, cx, move || {
+                super::files::extract_zip_to_folder(&archive, &destination).map(|()| Some(files::HistoryRecord {
+                    undo: files::HistoryAction::Remove(vec![destination.clone()]),
+                    redo: files::HistoryAction::Extract { archive, destination },
+                }))
             });
         }
         Command::Delete => {
@@ -285,6 +324,37 @@ pub fn run(
         }
     }
 }
+
+fn perform_history(
+    state: &mut MainWindow,
+    window: &mut Window,
+    cx: &mut Context<MainWindow>,
+    record: files::HistoryRecord,
+    undoing: bool,
+) {
+    state.file_operation_busy = true;
+    cx.notify();
+    let executor = cx.background_executor().clone();
+    cx.spawn_in(window, async move |state, cx| {
+        let action = if undoing { record.undo.clone() } else { record.redo.clone() };
+        let result = executor.spawn(async move { files::apply_history_action(&action).map_err(|e| e.to_string()) }).await;
+        let _ = state.update_in(cx, |state, window, cx| {
+            state.file_operation_busy = false;
+            match result {
+                Ok(()) => {
+                    if undoing { state.redo_history.push(record); } else { state.undo_history.push(record); }
+                    let path = state.current_dir.clone();
+                    state.load_directory(path, window, cx);
+                }
+                Err(error) => {
+                    if undoing { state.undo_history.push(record); } else { state.redo_history.push(record); }
+                    message(state, "Undo/redo failed", error, window, cx);
+                }
+            }
+        });
+    }).detach();
+}
+
 pub fn message(
     state: &mut MainWindow,
     title: &str,
@@ -300,6 +370,15 @@ pub fn perform(
     cx: &mut Context<MainWindow>,
     job: impl FnOnce() -> Result<(), String> + Send + 'static,
 ) {
+    perform_recorded(state, window, cx, move || job().map(|()| None));
+}
+
+pub fn perform_recorded(
+    state: &mut MainWindow,
+    window: &mut Window,
+    cx: &mut Context<MainWindow>,
+    job: impl FnOnce() -> Result<Option<files::HistoryRecord>, String> + Send + 'static,
+) {
     state.file_operation_busy = true;
     cx.notify();
     let executor = cx.background_executor().clone();
@@ -308,8 +387,12 @@ pub fn perform(
         let _ = state.update_in(cx, |state, window, cx| {
             state.file_operation_busy = false;
             match result {
-                Ok(()) => {
+                Ok(record) => {
                     state.file_dialog = None;
+                    if let Some(record) = record {
+                        state.undo_history.push(record);
+                        state.redo_history.clear();
+                    }
                     let path = state.current_dir.clone();
                     state.load_directory(path, window, cx);
                 }
@@ -340,8 +423,12 @@ pub fn move_paths_to(
     cx: &mut Context<MainWindow>,
 ) {
     if paths.is_empty() || paths.iter().any(|path| !path.exists()) { return; }
-    perform(state, window, cx, move || {
-        files::move_to(&paths, &destination).map_err(|error| error.to_string())
+    perform_recorded(state, window, cx, move || {
+        let pairs: Vec<_> = paths.iter().filter_map(|source| source.file_name().map(|name| (source.clone(), destination.join(name)))).collect();
+        files::move_to(&paths, &destination).map(|()| Some(files::HistoryRecord {
+            undo: files::HistoryAction::Move(pairs.iter().map(|(from,to)| (to.clone(),from.clone())).collect()),
+            redo: files::HistoryAction::Move(pairs),
+        })).map_err(|error| error.to_string())
     });
 }
 
