@@ -12,15 +12,15 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 | Copy, cut, paste, and move | ✅ | Clipboard file URI support; paste copies, cut/paste moves. |
 | Rename files and folders | ✅ | Single-item rename. |
 | Batch rename | ✅ | Replace and numbered/template modes, with preview. |
-| Duplicate files | ❌ | No duplicate command. Copy then paste in the same folder encounters a name conflict. |
-| Delete and restore files | 🟡 | Move to desktop trash is supported; restoring from within Veyra is not. |
-| Trash management | 🟡 | Can send selections to trash via GIO; no Trash view, browse, or restore UI. |
+| Duplicate files | ✅ | Copy and paste in the same folder creates “name (copy)” and numbered copies without replacing the original. |
+| Delete and restore files | ✅ | Move items to desktop Trash, restore them to their original locations, or permanently delete them. |
+| Trash management | ✅ | Browse Trash, restore selected items, permanently delete selected items, or empty Trash. |
 | Permanent deletion | ✅ | Confirmation before deletion. |
 | Undo and redo | ❌ | No operation history or undo/redo commands. |
 | Create symbolic links | 🟡 | “Paste as link” creates a symbolic link to copied paths; no general link wizard. |
 | Drag and drop | 🟡 | Internal drag of selected items onto folders moves them; dragging a folder onto the sidebar bookmarks it. General desktop/file-URI drag-and-drop is not evident. |
 | File operation progress | 🟡 | Shows a generic “Working…” indicator while an operation runs; no measured progress or per-item status. |
-| File conflict handling | 🟡 | Refuses to overwrite and reports an error; no conflict-resolution choices such as replace, skip, or keep both. |
+| File conflict handling | 🟡 | Refuses to overwrite and reports an error for other name conflicts; same-folder copy creates a numbered duplicate. No replace/skip choices. |
 
 ## 2. Navigation
 
@@ -50,7 +50,7 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 | Mounted drives | ❌ | No device discovery or drive list. |
 | Removable devices | ❌ | No removable-device management. |
 | Network locations | ❌ | No network-location browser. |
-| Trash shortcut | ❌ | No Trash entry in the sidebar. |
+| Trash shortcut | ✅ | Sidebar entry opens the GIO Trash location. |
 
 ## 4. File views
 

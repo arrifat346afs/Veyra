@@ -41,6 +41,13 @@ pub fn view(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
 }
 
 fn breadcrumbs(state: &MainWindow, surface: Hsla, cx: &mut Context<MainWindow>) -> AnyElement {
+    if crate::context_menu::files::is_trash_location(&state.current_dir) {
+        let selected = cx.theme().primary;
+        return div().flex().items_center().px(px(8.)).py(px(4.))
+            .rounded(cx.theme().radius).bg(selected.opacity(0.20)).text_color(selected)
+            .gap(px(6.)).child(Icon::new(IconName::Trash).size(px(14.))).child("Trash")
+            .into_any_element();
+    }
     let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
     let inside_home = !home.as_os_str().is_empty() && state.current_dir.starts_with(&home);
     let base = if inside_home { home.as_path() } else { Path::new("/") };

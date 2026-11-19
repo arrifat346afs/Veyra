@@ -232,6 +232,12 @@ impl MainWindow {
 
 /// Read a directory safely: inaccessible paths become a user-visible message.
 fn read_directory(path: &PathBuf) -> (Vec<PathBuf>, Option<String>) {
+    if crate::context_menu::files::is_trash_location(path) {
+        return match crate::context_menu::files::read_trash() {
+            Ok(entries) => (entries, None),
+            Err(error) => (Vec::new(), Some(format!("Trash: {error}"))),
+        };
+    }
     match fs::read_dir(path) {
         Ok(items) => {
             let mut entries: Vec<_> = items.filter_map(Result::ok).map(|item| item.path()).collect();

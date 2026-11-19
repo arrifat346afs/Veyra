@@ -47,6 +47,7 @@ pub fn sidebar(current_dir: &Path, cx: &mut Context<MainWindow>) -> impl IntoEle
         .child(location_row("Music", IconName::Music, home.join("Music"), current_dir, cx))
         .child(location_row("Videos", IconName::Clapperboard, home.join("Videos"), current_dir, cx))
         .child(location_row("File system", IconName::HardDrive, PathBuf::from("/"), current_dir, cx))
+        .child(location_row("Trash", IconName::Trash, PathBuf::from(crate::context_menu::files::TRASH_URI), current_dir, cx))
         .when(!saved_bookmarks.is_empty(), |sidebar| sidebar.child(div().h(px(16.))))
         .children(saved_bookmarks.into_iter().map(|bookmark| {
             // A bookmark has two independent click targets: its label navigates

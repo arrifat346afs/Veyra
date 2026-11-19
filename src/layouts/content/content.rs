@@ -18,7 +18,7 @@ use crate::windows::MainWindow;
 
 /// Render the active path and its file/folder entries in an icon grid.
 pub fn content(
-    _current_dir: &Path,
+    current_dir: &Path,
     entries: &[PathBuf],
     error: Option<&str>,
     list_view: bool,
@@ -33,7 +33,7 @@ pub fn content(
     cx: &mut Context<MainWindow>,
 ) -> AnyElement {
     if column_view {
-        return columns_content(column_paths, entries, error, preferences, selection, thumbnail_generation, picker, show_hidden, search_query, cx);
+        return columns_content(column_paths, entries, error, preferences, selection, thumbnail_generation, picker, show_hidden, search_query, crate::context_menu::files::is_trash_location(current_dir), cx);
     }
     let icon_size = preferences.icon_size.clamp(48,192) as f32;
     let spacing = [20.,12.,8.,4.][preferences.density.min(3)];
@@ -42,7 +42,7 @@ pub fn content(
         let path = entry.clone();
         let drop_destination = path.clone();
         let is_dir = entry.is_dir();
-        let name = entry.file_name().and_then(|name| name.to_str()).unwrap_or("(unnamed)").to_owned();
+        let name = display_name(entry, crate::context_menu::files::is_trash_location(current_dir));
         let icon = papirus_icon(entry, is_dir);
         let mut drag_paths: Vec<_> = if selection.selected.contains(entry) {
             selection.selected.iter().cloned().collect()
@@ -52,7 +52,7 @@ pub fn content(
             .is_some_and(|ext| ext.eq_ignore_ascii_case("appimage"));
         let tile = div().id(format!("entry-{}", entry.display())).w(px(icon_size+52.)).h_auto()
             .flex().flex_col().items_center().justify_start().gap(px(8.0)).p(px(10.0))
-            .rounded(cx.theme().radius).text_color(palette.foreground).cursor(CursorStyle::OpenHand)
+            .rounded(cx.theme().radius).text_color(palette.foreground)
             .on_drag(
                 crate::components::folder_drag::FolderDrag { paths: drag_paths },
                 |drag, _, _, cx| { cx.stop_propagation(); cx.new(|_| drag.clone()) },
@@ -75,7 +75,7 @@ pub fn content(
             .when(!is_dir && preferences.show_sizes, |tile| tile.child(div().when(list_view, |size| size.w(px(84.)).text_right())
                 .text_color(palette.muted_foreground).text_size(px(11.0))
                 .child(format_file_size(entry))))
-            .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| { if !(event.modifiers().control || event.modifiers().shift) && event.click_count() == 2 {if is_dir {this.navigate_to(path.clone(), window, cx);} else if this.picker.is_some() {crate::picker::accept(this,window,cx);} else if crate::context_menu::files::is_zip(&path) {this.selection.selected.clear();this.selection.selected.insert(path.clone());crate::context_menu::actions::run(crate::context_menu::actions::Command::Open,this,window,cx);} else {cx.open_with_system(&path);}} }))
+            .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| { if !(event.modifiers().control || event.modifiers().shift) && event.click_count() == 2 {if crate::context_menu::files::is_trash_location(&this.current_dir) {this.selection.selected.clear();this.selection.selected.insert(path.clone());crate::context_menu::actions::run(crate::context_menu::actions::Command::Restore,this,window,cx);} else if is_dir {this.navigate_to(path.clone(), window, cx);} else if this.picker.is_some() {crate::picker::accept(this,window,cx);} else if crate::context_menu::files::is_zip(&path) {this.selection.selected.clear();this.selection.selected.insert(path.clone());crate::context_menu::actions::run(crate::context_menu::actions::Command::Open,this,window,cx);} else {cx.open_with_system(&path);}} }))
         ;
         crate::selection::item(tile, entry.clone(), selection, picker, cx)
     }).collect();
@@ -105,6 +105,7 @@ fn columns_content(
     picker: bool,
     show_hidden: bool,
     query: &str,
+    in_trash: bool,
     cx: &mut Context<MainWindow>,
 ) -> AnyElement {
     let palette = cx.theme().clone();
@@ -126,7 +127,7 @@ fn columns_content(
             let path = entry.clone();
             let drop_destination = path.clone();
             let is_dir = entry.is_dir();
-            let name = entry.file_name().unwrap_or_default().to_string_lossy().into_owned();
+            let name = display_name(&entry, in_trash);
             let icon = papirus_icon(&entry, is_dir);
             let mut drag_paths: Vec<_> = if selection.selected.contains(&entry) {
                 selection.selected.iter().cloned().collect()
@@ -134,7 +135,7 @@ fn columns_content(
             drag_paths.sort();
             let row = div().id(format!("column-entry-{}",entry.display())).w_full().min_w(px(0.))
                 .h_auto().px(px(10.)).py(px(6.)).rounded(cx.theme().radius)
-                .flex().items_center().gap(px(9.)).cursor(CursorStyle::OpenHand)
+                .flex().items_center().gap(px(9.))
                 .on_drag(crate::components::folder_drag::FolderDrag {paths:drag_paths}, |drag,_,_,cx| {
                     cx.stop_propagation();cx.new(|_| drag.clone())
                 })
@@ -325,5 +326,18 @@ fn format_file_size(path: &Path) -> String {
             else { format!("{:.1} MB", bytes as f64 / (1024.0 * 1024.0)) }
         }
         Err(_) => String::new(),
+    }
+}
+
+fn display_name(path: &Path, in_trash: bool) -> String {
+    if in_trash {
+        use gio::prelude::*;
+        gio::File::for_uri(&path.to_string_lossy())
+            .basename()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned()
+    } else {
+        path.file_name().unwrap_or_default().to_string_lossy().into_owned()
     }
 }

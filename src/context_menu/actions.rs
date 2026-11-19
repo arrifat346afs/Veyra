@@ -29,6 +29,8 @@ pub enum Command {
     BatchRename,
     Trash,
     Delete,
+    Restore,
+    EmptyTrash,
 }
 fn selected(state: &MainWindow) -> Vec<PathBuf> {
     let mut paths: Vec<_> = state.selection.selected.iter().cloned().collect();
@@ -143,8 +145,20 @@ pub fn run(
                 return;
             }
             perform(state, window, cx, move || {
-                files::trash(&paths).map_err(|e| e.to_string())
+                if paths.iter().all(|path| path.to_string_lossy().starts_with("trash://")) {
+                    files::delete_from_trash(&paths).map_err(|e| e.to_string())
+                } else {
+                    files::trash(&paths).map_err(|e| e.to_string())
+                }
             });
+        }
+        Command::Restore => {
+            let paths = selected(state);
+            if paths.is_empty() { return; }
+            perform(state, window, cx, move || files::restore_from_trash(&paths).map_err(|e| e.to_string()));
+        }
+        Command::EmptyTrash => {
+            dialog::show(state, Kind::EmptyTrash, "Empty Trash?", "All items in Trash will be permanently deleted.", None, window, cx);
         }
         Command::ExtractZip => {
             let paths = selected(state);

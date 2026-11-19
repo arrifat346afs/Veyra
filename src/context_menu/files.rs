@@ -34,11 +34,20 @@ pub fn create(path: &Path, folder: bool) -> io::Result<()> {
 
 pub fn paste(sources: &[PathBuf], directory: &Path, link: bool) -> io::Result<()> {
     for source in sources {
-        let target = directory.join(
-            source
-                .file_name()
-                .ok_or_else(|| io::Error::other("Source has no file name"))?,
-        );
+        let name = source
+            .file_name()
+            .ok_or_else(|| io::Error::other("Source has no file name"))?;
+        let mut target = directory.join(name);
+        // Copying an item into its own folder is the file manager's Duplicate
+        // operation. Keep the original and choose a stable, human-readable name.
+        let same_directory = source
+            .parent()
+            .and_then(|parent| parent.canonicalize().ok())
+            .zip(directory.canonicalize().ok())
+            .is_some_and(|(source_parent, destination)| source_parent == destination);
+        if same_directory && target.symlink_metadata().is_ok() {
+            target = duplicate_name(directory, name);
+        }
         // Never overwrite an existing file or follow an existing destination link.
         if target.symlink_metadata().is_ok() {
             return Err(io::Error::other(format!(
@@ -60,6 +69,24 @@ pub fn paste(sources: &[PathBuf], directory: &Path, link: bool) -> io::Result<()
         }
     }
     Ok(())
+}
+
+fn duplicate_name(directory: &Path, name: &std::ffi::OsStr) -> PathBuf {
+    let original = Path::new(name);
+    let stem = original.file_stem().unwrap_or(name).to_string_lossy();
+    let extension = original.extension().map(|ext| ext.to_string_lossy());
+    for index in 1u32.. {
+        let suffix = if index == 1 { " (copy)".to_owned() } else { format!(" (copy {index})") };
+        let filename = match &extension {
+            Some(extension) => format!("{stem}{suffix}.{extension}"),
+            None => format!("{stem}{suffix}"),
+        };
+        let candidate = directory.join(filename);
+        if candidate.symlink_metadata().is_err() {
+            return candidate;
+        }
+    }
+    unreachable!("u32 duplicate name space exhausted")
 }
 
 fn copy(source: &Path, target: &Path) -> io::Result<()> {
@@ -192,6 +219,82 @@ pub fn trash(paths: &[PathBuf]) -> io::Result<()> {
             String::from_utf8_lossy(&output.stderr).trim().to_owned(),
         ))
     }
+}
+
+pub const TRASH_URI: &str = "trash:///";
+
+pub fn is_trash_location(path: &Path) -> bool {
+    path == Path::new(TRASH_URI)
+}
+
+/// Return trash children as GIO URIs so the trash backend remains in control
+/// of files from both the home trash and mounted-volume trash locations.
+pub fn read_trash() -> io::Result<Vec<PathBuf>> {
+    use gio::prelude::*;
+    let trash = gio::File::for_uri(TRASH_URI);
+    let enumerator = trash
+        .enumerate_children("standard::name", gio::FileQueryInfoFlags::NONE, None::<&gio::Cancellable>)
+        .map_err(|error| io::Error::other(error.to_string()))?;
+    let mut entries = Vec::new();
+    while let Some(info) = enumerator
+        .next_file(None::<&gio::Cancellable>)
+        .map_err(|error| io::Error::other(error.to_string()))?
+    {
+        let child = trash.child(&info.name());
+        entries.push(PathBuf::from(child.uri().as_str()));
+    }
+    entries.sort();
+    Ok(entries)
+}
+
+pub fn restore_from_trash(paths: &[PathBuf]) -> io::Result<()> {
+    use gio::prelude::*;
+    for path in paths {
+        let trashed = gio::File::for_uri(&path.to_string_lossy());
+        let info = trashed
+            .query_info("trash::orig-path", gio::FileQueryInfoFlags::NONE, None::<&gio::Cancellable>)
+            .map_err(|error| io::Error::other(error.to_string()))?;
+        let original = info
+            .attribute_byte_string("trash::orig-path")
+            .ok_or_else(|| io::Error::other("Trash entry has no original location"))?;
+        let destination = gio::File::for_path(Path::new(original.as_str()));
+        trashed
+            .move_(&destination, gio::FileCopyFlags::NONE, None::<&gio::Cancellable>, None)
+            .map_err(|error| io::Error::other(error.to_string()))?;
+    }
+    Ok(())
+}
+
+pub fn empty_trash() -> io::Result<()> {
+    for path in read_trash()? {
+        delete_trash_file(&gio::File::for_uri(&path.to_string_lossy()))?;
+    }
+    Ok(())
+}
+
+pub fn delete_from_trash(paths: &[PathBuf]) -> io::Result<()> {
+    for path in paths {
+        delete_trash_file(&gio::File::for_uri(&path.to_string_lossy()))?;
+    }
+    Ok(())
+}
+
+fn delete_trash_file(file: &gio::File) -> io::Result<()> {
+    use gio::prelude::*;
+    if let Ok(enumerator) = file.enumerate_children(
+        "standard::type,standard::name",
+        gio::FileQueryInfoFlags::NONE,
+        None::<&gio::Cancellable>,
+    ) {
+        while let Some(info) = enumerator
+            .next_file(None::<&gio::Cancellable>)
+            .map_err(|error| io::Error::other(error.to_string()))?
+        {
+            delete_trash_file(&file.child(&info.name()))?;
+        }
+    }
+    file.delete(None::<&gio::Cancellable>)
+        .map_err(|error| io::Error::other(error.to_string()))
 }
 
 #[cfg(test)]

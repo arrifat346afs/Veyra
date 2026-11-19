@@ -80,6 +80,9 @@ fn attach_to(
         let hidden = owner
             .upgrade()
             .is_some_and(|state| state.read(cx).show_hidden);
+        let in_trash = owner.upgrade().is_some_and(|state| {
+            super::files::is_trash_location(&state.read(cx).current_dir)
+        });
         let document_owner = owner.clone();
         // Empty-space menus apply Open with to the current folder; entry
         // menus apply it to the clicked item or the existing multi-selection.
@@ -92,6 +95,12 @@ fn attach_to(
             ))
             .separator();
         if path.is_some() {
+            if in_trash {
+                menu = menu
+                    .item(item("Restore", IconName::RefreshCw, Command::Restore, owner.clone()))
+                    .item(item("Delete permanently…", IconName::Trash, Command::Trash, owner.clone()))
+                    .separator();
+            } else {
             let zip_selected = path.as_ref().is_some_and(|path| super::files::is_zip(path));
             menu = menu
                 .item(item("Quick preview",IconName::Eye,Command::Preview,owner.clone()).disabled(count != 1 || path.as_ref().is_some_and(|p| !p.is_file())))
@@ -119,6 +128,7 @@ fn attach_to(
                     owner.clone(),
                 ))
                 .separator();
+            }
         }
         if path.as_ref().is_some_and(|path| path.is_dir()) {
             menu = menu.item(item("Add to bookmarks", IconName::Bookmark, Command::Bookmark, owner.clone()))

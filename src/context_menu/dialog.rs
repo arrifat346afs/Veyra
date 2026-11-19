@@ -14,6 +14,7 @@ pub enum Kind {
     Create { directory: PathBuf, folder: bool },
     Rename(PathBuf),
     Delete(Vec<PathBuf>),
+    EmptyTrash,
     Message,
     PickerOverwrite(Vec<PathBuf>),
 }
@@ -119,6 +120,7 @@ pub fn submit(state: &mut MainWindow, window: &mut Window, cx: &mut Context<Main
             }
             Kind::Rename(source) => super::files::rename(&source, &source.with_file_name(name)),
             Kind::Delete(paths) => super::files::delete(&paths),
+            Kind::EmptyTrash => super::files::empty_trash(),
             Kind::Message | Kind::PickerOverwrite(_) => Ok(()),
         }
         .map_err(|e| e.to_string())
@@ -133,6 +135,7 @@ pub fn view(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
         Kind::Create { .. } => "Create file",
         Kind::Rename(_) => "Rename",
         Kind::Delete(_) => "Delete permanently",
+        Kind::EmptyTrash => "Empty Trash",
         Kind::Message => "Close",
         Kind::PickerOverwrite(_) => "Replace",
     };
