@@ -13,8 +13,12 @@ use std::path::PathBuf;
 pub enum Kind {
     Create { directory: PathBuf, folder: bool },
     Rename(PathBuf),
+    CreateLink(PathBuf),
     Delete(Vec<PathBuf>),
     EmptyTrash,
+    Conflicts { sources: Vec<PathBuf>, directory: PathBuf, cut: bool, link: bool },
+    LinkConflict { source: PathBuf, destination: PathBuf },
+    RenameConflict { source: PathBuf, destination: PathBuf },
     Message,
     PickerOverwrite(Vec<PathBuf>),
 }
@@ -106,35 +110,103 @@ pub fn submit(state: &mut MainWindow, window: &mut Window, cx: &mut Context<Main
         close(state, window, cx);
         return;
     }
-    if matches!(kind, Kind::Create { .. } | Kind::Rename(_)) {
+    if matches!(kind, Kind::Create { .. } | Kind::Rename(_) | Kind::CreateLink(_)) {
         if let Err(error) = super::files::validate_name(&name) {
             state.file_dialog.as_mut().unwrap().error = Some(error);
             cx.notify();
             return;
         }
     }
-    super::actions::perform_recorded(state, window, cx, move || {
+    if let Kind::CreateLink(source) = &kind {
+        let destination = source.parent().unwrap_or_else(|| std::path::Path::new(".")).join(&name);
+        if destination.symlink_metadata().is_ok() {
+            if let Some(dialog) = state.file_dialog.as_mut() {
+                dialog.kind = Kind::LinkConflict { source: source.clone(), destination };
+                dialog.title = "File conflict".into();
+                dialog.detail = "A link with that name already exists. Choose how to handle the conflict.".into();
+            }
+            cx.notify();
+            return;
+        }
+    }
+    if let Kind::Rename(source) = &kind {
+        let destination = source.with_file_name(&name);
+        if source != &destination && destination.symlink_metadata().is_ok() {
+            if let Some(dialog) = state.file_dialog.as_mut() {
+                dialog.kind = Kind::RenameConflict { source: source.clone(), destination };
+                dialog.title = "File conflict".into();
+                dialog.detail = "A file with that name already exists. Choose how to handle the conflict.".into();
+            }
+            cx.notify();
+            return;
+        }
+    }
+    if let Kind::Conflicts { sources, directory, cut, link } = kind {
+        super::actions::resolve_conflict_choice(state, sources, directory, cut, link, super::files::ConflictPolicy::Replace, window, cx);
+        return;
+    }
+    if let Kind::LinkConflict { source, destination } = kind {
+        super::actions::resolve_link_conflict_choice(state, source, destination, super::files::ConflictPolicy::Replace, window, cx);
+        return;
+    }
+    if let Kind::RenameConflict { source, destination } = kind {
+        super::actions::resolve_rename_conflict_choice(state, source, destination, super::files::ConflictPolicy::Replace, window, cx);
+        return;
+    }
+    super::actions::perform_progress_recorded(state, window, cx, move |progress| {
         match kind {
             Kind::Create { directory, folder } => {
                 let path = directory.join(name);
+                progress(0, 1, &path);
                 super::files::create(&path, folder).map(|()| Some(super::files::HistoryRecord {
                     undo: super::files::HistoryAction::Remove(vec![path.clone()]),
                     redo: super::files::HistoryAction::Create { path, folder },
-                }))
+                })).map(|record| { progress(1, 1, &directory); record })
             }
             Kind::Rename(source) => {
                 let destination = source.with_file_name(name);
-                super::files::rename(&source, &destination).map(|()| Some(super::files::HistoryRecord {
+                progress(0, 1, &source);
+                let result = super::files::rename(&source, &destination).map(|()| Some(super::files::HistoryRecord {
                     undo: super::files::HistoryAction::Move(vec![(destination.clone(), source.clone())]),
-                    redo: super::files::HistoryAction::Move(vec![(source, destination)]),
-                }))
+                    redo: super::files::HistoryAction::Move(vec![(source, destination.clone())]),
+                }));
+                progress(1, 1, &destination);
+                result
             }
-            Kind::Delete(paths) => super::files::delete(&paths).map(|()| None),
-            Kind::EmptyTrash => super::files::empty_trash().map(|()| None),
+            Kind::CreateLink(source) => {
+                let destination = source.parent().unwrap_or_else(|| std::path::Path::new(".")).join(name);
+                progress(0, 1, &source);
+                let result = super::files::create_link(&source, &destination).map(|()| Some(super::files::HistoryRecord {
+                    undo: super::files::HistoryAction::Remove(vec![destination.clone()]),
+                    redo: super::files::HistoryAction::Link(vec![(source, destination.clone())]),
+                }));
+                progress(1, 1, &destination);
+                result
+            }
+            Kind::Delete(paths) => super::files::delete_with_progress(&paths, progress).map(|()| None),
+            Kind::EmptyTrash => super::files::empty_trash_with_progress(progress).map(|()| None),
+            Kind::Conflicts { .. } => Ok(None),
+            Kind::LinkConflict { .. } => Ok(None),
+            Kind::RenameConflict { .. } => Ok(None),
             Kind::Message | Kind::PickerOverwrite(_) => Ok(None),
         }
         .map_err(|e| e.to_string())
     });
+}
+
+fn resolve_conflict_button(
+    state: &mut MainWindow,
+    policy: super::files::ConflictPolicy,
+    window: &mut Window,
+    cx: &mut Context<MainWindow>,
+) {
+    let Some(kind) = state.file_dialog.as_ref().map(|dialog| dialog.kind.clone()) else { return; };
+    match kind {
+        Kind::Conflicts { sources, directory, cut, link } => super::actions::resolve_conflict_choice(state, sources, directory, cut, link, policy, window, cx),
+        Kind::LinkConflict { source, destination } => super::actions::resolve_link_conflict_choice(state, source, destination, policy, window, cx),
+        Kind::RenameConflict { source, destination } => super::actions::resolve_rename_conflict_choice(state, source, destination, policy, window, cx),
+        _ => {}
+    }
 }
 pub fn view(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
     let dialog = state.file_dialog.as_ref().unwrap();
@@ -144,8 +216,12 @@ pub fn view(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
         Kind::Create { folder: true, .. } => "Create folder",
         Kind::Create { .. } => "Create file",
         Kind::Rename(_) => "Rename",
+        Kind::CreateLink(_) => "Create link",
         Kind::Delete(_) => "Delete permanently",
         Kind::EmptyTrash => "Empty Trash",
+        Kind::Conflicts { .. } => "Replace",
+        Kind::LinkConflict { .. } => "Replace",
+        Kind::RenameConflict { .. } => "Replace",
         Kind::Message => "Close",
         Kind::PickerOverwrite(_) => "Replace",
     };
@@ -207,6 +283,11 @@ pub fn view(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
                                     .on_click(cx.listener(|s, _, w, c| close(s, w, c))),
                             )
                         })
+                        .when(matches!(dialog.kind, Kind::Conflicts { .. } | Kind::LinkConflict { .. } | Kind::RenameConflict { .. }), |row| row
+                            .child(Button::new("file-dialog-skip").label("Skip").disabled(busy)
+                                .on_click(cx.listener(|s, _, w, c| resolve_conflict_button(s, super::files::ConflictPolicy::Skip, w, c))))
+                            .child(Button::new("file-dialog-keep-both").label("Keep Both").disabled(busy)
+                                .on_click(cx.listener(|s, _, w, c| resolve_conflict_button(s, super::files::ConflictPolicy::KeepBoth, w, c)))))
                         .child(
                             Button::new("file-dialog-submit")
                                 .label(if busy { "Working…" } else { label })

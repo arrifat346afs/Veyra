@@ -41,6 +41,7 @@ pub fn content(
     let entry_tiles: Vec<_> = entries.iter().map(|entry| {
         let path = entry.clone();
         let drop_destination = path.clone();
+        let external_drop_destination = path.clone();
         let is_dir = entry.is_dir();
         let name = display_name(entry, crate::context_menu::files::is_trash_location(current_dir));
         let icon = papirus_icon(entry, is_dir);
@@ -57,10 +58,16 @@ pub fn content(
                 crate::components::folder_drag::FolderDrag { paths: drag_paths },
                 |drag, _, _, cx| { cx.stop_propagation(); cx.new(|_| drag.clone()) },
             )
+            .external_drag_payload(|drag: &crate::components::folder_drag::FolderDrag, _, _| {
+                Some(ExternalDragPayload::Files(FileDragPaths::new(drag.paths.iter().map(|path| (path.clone(), path.is_dir())))))
+            })
             .when(is_dir, |tile| tile
                 .drag_over::<crate::components::folder_drag::FolderDrag>(|style,_,_,cx| style.bg(cx.theme().primary.opacity(0.28)))
                 .on_drop(cx.listener(move |state,drag:&crate::components::folder_drag::FolderDrag,window,cx| {
                     crate::context_menu::actions::move_paths_to(drag.paths.clone(),drop_destination.clone(),state,window,cx);
+                }))
+                .on_drop(cx.listener(move |state,paths:&ExternalPaths,window,cx| {
+                    crate::context_menu::actions::copy_paths_to(paths.paths().to_vec(),external_drop_destination.clone(),state,window,cx);
                 })))
             .when(list_view, |tile| tile.w_full().h_auto().flex_row().items_center().gap(px(12.)).py(px(4.)))
             .child(if is_dir {
@@ -126,6 +133,7 @@ fn columns_content(
         let rows = items.into_iter().map(|entry| {
             let path = entry.clone();
             let drop_destination = path.clone();
+            let external_drop_destination = path.clone();
             let is_dir = entry.is_dir();
             let name = display_name(&entry, in_trash);
             let icon = papirus_icon(&entry, is_dir);
@@ -139,10 +147,16 @@ fn columns_content(
                 .on_drag(crate::components::folder_drag::FolderDrag {paths:drag_paths}, |drag,_,_,cx| {
                     cx.stop_propagation();cx.new(|_| drag.clone())
                 })
+                .external_drag_payload(|drag: &crate::components::folder_drag::FolderDrag, _, _| {
+                    Some(ExternalDragPayload::Files(FileDragPaths::new(drag.paths.iter().map(|path| (path.clone(), path.is_dir())))))
+                })
                 .when(is_dir, |row| row
                     .drag_over::<crate::components::folder_drag::FolderDrag>(|style,_,_,cx| style.bg(cx.theme().primary.opacity(0.28)))
                     .on_drop(cx.listener(move |state,drag:&crate::components::folder_drag::FolderDrag,window,cx| {
                         crate::context_menu::actions::move_paths_to(drag.paths.clone(),drop_destination.clone(),state,window,cx);
+                    }))
+                    .on_drop(cx.listener(move |state,paths:&ExternalPaths,window,cx| {
+                        crate::context_menu::actions::copy_paths_to(paths.paths().to_vec(),external_drop_destination.clone(),state,window,cx);
                     })))
                 .child(if is_dir {
                     crate::components::folder_icon::view(PathBuf::from(icon), 20., cx)

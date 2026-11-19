@@ -32,10 +32,16 @@ pub fn create(path: &Path, folder: bool) -> io::Result<()> {
     }
 }
 
+pub fn create_link(source: &Path, destination: &Path) -> io::Result<()> {
+    std::os::unix::fs::symlink(source, destination)
+}
+
+#[cfg(test)]
 pub fn paste(sources: &[PathBuf], directory: &Path, link: bool) -> io::Result<()> {
     paste_with_receipt(sources, directory, link).map(|_| ())
 }
 
+#[cfg(test)]
 pub fn paste_with_receipt(sources: &[PathBuf], directory: &Path, link: bool) -> io::Result<Vec<PathBuf>> {
     let mut created = Vec::new();
     for source in sources {
@@ -77,6 +83,115 @@ pub fn paste_with_receipt(sources: &[PathBuf], directory: &Path, link: bool) -> 
     Ok(created)
 }
 
+#[derive(Clone, Copy)]
+pub enum ConflictPolicy { Replace, Skip, KeepBoth }
+
+pub struct PasteReceipt {
+    pub created: Vec<PathBuf>,
+    pub pairs: Vec<(PathBuf, PathBuf)>,
+    pub replaced: Vec<PathBuf>,
+}
+
+pub fn has_conflicts(sources: &[PathBuf], directory: &Path) -> bool {
+    let mut names = std::collections::HashSet::new();
+    sources.iter().any(|source| {
+        let Some(name) = source.file_name() else { return true; };
+        let same_directory = source.parent().and_then(|p| p.canonicalize().ok())
+            .zip(directory.canonicalize().ok()).is_some_and(|(a,b)| a == b);
+        let repeated_name = !same_directory && !names.insert(name.to_os_string());
+        let existing_target = !same_directory && directory.join(name).symlink_metadata().is_ok();
+        repeated_name || existing_target
+    })
+}
+
+pub fn paste_resolving(
+    sources: &[PathBuf],
+    directory: &Path,
+    link: bool,
+    policy: ConflictPolicy,
+    progress: &mut dyn FnMut(usize, usize, &Path),
+) -> io::Result<PasteReceipt> {
+    let mut receipt = PasteReceipt { created: Vec::new(), pairs: Vec::new(), replaced: Vec::new() };
+    for (index, source) in sources.iter().enumerate() {
+        progress(index, sources.len(), source);
+        let name = source.file_name().ok_or_else(|| io::Error::other("Source has no file name"))?;
+        let mut target = directory.join(name);
+        let same_directory = source.parent().and_then(|p| p.canonicalize().ok())
+            .zip(directory.canonicalize().ok()).is_some_and(|(a,b)| a == b);
+        if source.is_dir() && directory.canonicalize()?.starts_with(fs::canonicalize(source)?) {
+            return Err(io::Error::other("Cannot paste a folder inside itself"));
+        }
+        if target.symlink_metadata().is_ok() {
+            if same_directory {
+                target = duplicate_name(directory, name);
+            } else {
+                match policy {
+                    ConflictPolicy::Skip => { progress(index + 1, sources.len(), source); continue; },
+                    ConflictPolicy::KeepBoth => target = duplicate_name(directory, name),
+                    ConflictPolicy::Replace => {
+                        if let Err(error) = trash(std::slice::from_ref(&target)) {
+                            for created in &receipt.created { let _ = delete(std::slice::from_ref(created)); }
+                            let _ = restore_originals(&receipt.replaced);
+                            return Err(error);
+                        }
+                        receipt.replaced.push(target.clone());
+                    }
+                }
+            }
+        }
+        let result = if link { std::os::unix::fs::symlink(source, &target) } else { copy(source, &target) };
+        if let Err(error) = result {
+            let _ = delete(std::slice::from_ref(&target));
+            for created in &receipt.created { let _ = delete(std::slice::from_ref(created)); }
+            let _ = restore_originals(&receipt.replaced);
+            return Err(error);
+        }
+        receipt.pairs.push((source.clone(), target.clone()));
+        receipt.created.push(target);
+        progress(index + 1, sources.len(), source);
+    }
+    Ok(receipt)
+}
+
+pub fn move_resolving(sources: &[PathBuf], directory: &Path, policy: ConflictPolicy, progress: &mut dyn FnMut(usize, usize, &Path)) -> io::Result<(Vec<(PathBuf, PathBuf)>, Vec<PathBuf>)> {
+    let mut moved: Vec<(PathBuf, PathBuf)> = Vec::new();
+    let mut replaced = Vec::new();
+    for (index, source) in sources.iter().enumerate() {
+        progress(index, sources.len(), source);
+        let name = source.file_name().ok_or_else(|| io::Error::other("Source has no name"))?;
+        let mut target = directory.join(name);
+        let same_directory = source.parent().and_then(|p| p.canonicalize().ok())
+            .zip(directory.canonicalize().ok()).is_some_and(|(a,b)| a == b);
+        if same_directory { progress(index + 1, sources.len(), source); continue; }
+        if target.symlink_metadata().is_ok() {
+            match policy {
+                ConflictPolicy::Skip => { progress(index + 1, sources.len(), source); continue; },
+                ConflictPolicy::KeepBoth => target = duplicate_name(directory, name),
+                ConflictPolicy::Replace => {
+                    if let Err(error) = trash(std::slice::from_ref(&target)) {
+                        for (from, to) in moved.iter().rev() { let _ = move_exact(to, from); }
+                        let _ = restore_originals(&replaced);
+                        return Err(error);
+                    }
+                    replaced.push(target.clone());
+                }
+            }
+        }
+        if source.is_dir() && target.starts_with(source) {
+            let _ = restore_originals(&replaced);
+            return Err(io::Error::other("Cannot move a folder into itself or one of its subfolders"));
+        }
+        if let Err(error) = move_exact(source, &target) {
+            for (from, to) in moved.iter().rev() { let _ = move_exact(to, from); }
+            let _ = restore_originals(&replaced);
+            return Err(error);
+        }
+        moved.push((source.clone(), target));
+        progress(index + 1, sources.len(), source);
+    }
+    Ok((moved, replaced))
+}
+
 fn duplicate_name(directory: &Path, name: &std::ffi::OsStr) -> PathBuf {
     let original = Path::new(name);
     let stem = original.file_stem().unwrap_or(name).to_string_lossy();
@@ -93,6 +208,10 @@ fn duplicate_name(directory: &Path, name: &std::ffi::OsStr) -> PathBuf {
         }
     }
     unreachable!("u32 duplicate name space exhausted")
+}
+
+pub fn keep_both_name(directory: &Path, name: &std::ffi::OsStr) -> PathBuf {
+    duplicate_name(directory, name)
 }
 
 fn copy(source: &Path, target: &Path) -> io::Result<()> {
@@ -175,6 +294,7 @@ pub fn rename(source: &Path, target: &Path) -> io::Result<()> {
         Err(io::Error::last_os_error())
     }
 }
+#[cfg(test)]
 pub fn move_to(sources: &[PathBuf], directory: &Path) -> io::Result<()> {
     let destination = directory.canonicalize()?;
     for source in sources {
@@ -201,30 +321,37 @@ pub fn move_to(sources: &[PathBuf], directory: &Path) -> io::Result<()> {
     Ok(())
 }
 pub fn delete(paths: &[PathBuf]) -> io::Result<()> {
-    for path in paths {
+    delete_with_progress(paths, &mut |_, _, _| {})
+}
+
+pub fn delete_with_progress(paths: &[PathBuf], progress: &mut dyn FnMut(usize, usize, &Path)) -> io::Result<()> {
+    for (index, path) in paths.iter().enumerate() {
+        progress(index, paths.len(), path);
         let metadata = path.symlink_metadata()?;
         if metadata.is_dir() {
             fs::remove_dir_all(path)?;
         } else {
             fs::remove_file(path)?;
         }
+        progress(index + 1, paths.len(), path);
     }
     Ok(())
 }
 pub fn trash(paths: &[PathBuf]) -> io::Result<()> {
+    trash_with_progress(paths, &mut |_, _, _| {})
+}
+
+pub fn trash_with_progress(paths: &[PathBuf], progress: &mut dyn FnMut(usize, usize, &Path)) -> io::Result<()> {
     // GIO implements the desktop trash spec, including mounted volumes.
-    let output = std::process::Command::new("gio")
-        .arg("trash")
-        .arg("--")
-        .args(paths)
-        .output()?;
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(io::Error::other(
-            String::from_utf8_lossy(&output.stderr).trim().to_owned(),
-        ))
+    for (index, path) in paths.iter().enumerate() {
+        progress(index, paths.len(), path);
+        let output = std::process::Command::new("gio").arg("trash").arg("--").arg(path).output()?;
+        if !output.status.success() {
+            return Err(io::Error::other(String::from_utf8_lossy(&output.stderr).trim().to_owned()));
+        }
+        progress(index + 1, paths.len(), path);
     }
+    Ok(())
 }
 
 pub const TRASH_URI: &str = "trash:///";
@@ -239,6 +366,7 @@ pub enum HistoryAction {
     Extract { archive: PathBuf, destination: PathBuf },
     Trash(Vec<PathBuf>),
     Restore(Vec<PathBuf>),
+    Sequence(Vec<HistoryAction>),
 }
 
 #[derive(Clone)]
@@ -282,6 +410,10 @@ pub fn apply_history_action(action: &HistoryAction) -> io::Result<()> {
             .map_err(io::Error::other),
         HistoryAction::Trash(paths) => trash(paths),
         HistoryAction::Restore(paths) => restore_originals(paths),
+        HistoryAction::Sequence(actions) => {
+            for action in actions { apply_history_action(action)?; }
+            Ok(())
+        }
     }
 }
 
@@ -307,10 +439,15 @@ fn move_exact(source: &Path, destination: &Path) -> io::Result<()> {
     }
 }
 
-fn restore_originals(originals: &[PathBuf]) -> io::Result<()> {
+pub fn restore_originals(originals: &[PathBuf]) -> io::Result<()> {
+    restore_originals_with_progress(originals, &mut |_, _, _| {})
+}
+
+pub fn restore_originals_with_progress(originals: &[PathBuf], progress: &mut dyn FnMut(usize, usize, &Path)) -> io::Result<()> {
     use gio::prelude::*;
     let entries = read_trash()?;
-    for original in originals {
+    for (index, original) in originals.iter().enumerate() {
+        progress(index, originals.len(), original);
         let original_name = original.to_string_lossy();
         let trashed = entries.iter().find_map(|entry| {
             let file = gio::File::for_uri(&entry.to_string_lossy());
@@ -323,6 +460,7 @@ fn restore_originals(originals: &[PathBuf]) -> io::Result<()> {
         trashed
             .move_(&gio::File::for_path(original), gio::FileCopyFlags::NONE, None::<&gio::Cancellable>, None)
             .map_err(|error| io::Error::other(error.to_string()))?;
+        progress(index + 1, originals.len(), original);
     }
     Ok(())
 }
@@ -351,6 +489,7 @@ pub fn read_trash() -> io::Result<Vec<PathBuf>> {
     Ok(entries)
 }
 
+#[cfg(test)]
 pub fn restore_from_trash(paths: &[PathBuf]) -> io::Result<()> {
     let originals = originals_for_trash(paths)?;
     restore_originals(&originals)
@@ -370,16 +509,31 @@ pub fn originals_for_trash(paths: &[PathBuf]) -> io::Result<Vec<PathBuf>> {
     }).collect()
 }
 
+#[cfg(test)]
 pub fn empty_trash() -> io::Result<()> {
-    for path in read_trash()? {
+    empty_trash_with_progress(&mut |_, _, _| {})
+}
+
+pub fn empty_trash_with_progress(progress: &mut dyn FnMut(usize, usize, &Path)) -> io::Result<()> {
+    let paths = read_trash()?;
+    for (index, path) in paths.iter().enumerate() {
+        progress(index, paths.len(), path);
         delete_trash_file(&gio::File::for_uri(&path.to_string_lossy()))?;
+        progress(index + 1, paths.len(), path);
     }
     Ok(())
 }
 
+#[cfg(test)]
 pub fn delete_from_trash(paths: &[PathBuf]) -> io::Result<()> {
-    for path in paths {
+    delete_from_trash_with_progress(paths, &mut |_, _, _| {})
+}
+
+pub fn delete_from_trash_with_progress(paths: &[PathBuf], progress: &mut dyn FnMut(usize, usize, &Path)) -> io::Result<()> {
+    for (index, path) in paths.iter().enumerate() {
+        progress(index, paths.len(), path);
         delete_trash_file(&gio::File::for_uri(&path.to_string_lossy()))?;
+        progress(index + 1, paths.len(), path);
     }
     Ok(())
 }

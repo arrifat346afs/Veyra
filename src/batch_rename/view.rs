@@ -63,7 +63,7 @@ fn submit(state: &mut MainWindow, window: &mut Window, cx: &mut Context<MainWind
         let index = batch.paths.iter().position(|path| path == &s).unwrap();
         (s, d, batch.identities[index])
     }).collect();
-    actions::perform(state, window, cx, move || {
+    actions::perform_progress_recorded(state, window, cx, move |progress| {
         use std::os::unix::fs::MetadataExt;
         for (source, _, expected) in &pairs {
             let actual = source.symlink_metadata().map(|m| (m.dev(), m.ino())).map_err(|_| format!("{} changed. Review the selection again.", source.display()))?;
@@ -84,18 +84,32 @@ fn submit(state: &mut MainWindow, window: &mut Window, cx: &mut Context<MainWind
                 ordered.push(pending.remove(i));
             } else { return Err("The rename plan contains a cycle; no files were changed.".into()); }
         }
-        let mut succeeded = Vec::new();
-        for (source, dest) in &ordered {
+        let history_pairs: Vec<_> = ordered.clone();
+        let mut succeeded: Vec<(PathBuf, PathBuf)> = Vec::new();
+        for (index, (source, dest)) in ordered.iter().enumerate() {
+            progress(index, ordered.len(), source);
             use std::os::unix::fs::MetadataExt;
             let actual = source.symlink_metadata().map(|m| (m.dev(), m.ino())).map_err(|_| format!("{} changed. Review the selection again.", source.display()))?;
             let expected = pairs.iter().find(|(p, _, _)| p == source).unwrap().2;
             if actual != expected { return Err(format!("{} changed. Review the selection again.", source.display())); }
             if let Err(e) = crate::context_menu::files::rename(source, dest) {
-                return Err(format!("Rename stopped: {e}. Succeeded: {}. Remaining: {}", succeeded.iter().map(|p: &PathBuf| p.display().to_string()).collect::<Vec<_>>().join(", "), ordered.iter().skip(succeeded.len()).map(|(_, p)| p.display().to_string()).collect::<Vec<_>>().join(", ")));
+                let mut rollback_errors = Vec::new();
+                for (original, renamed) in succeeded.iter().rev() {
+                    if let Err(rollback) = crate::context_menu::files::rename(renamed, original) {
+                        rollback_errors.push(format!("{}: {rollback}", original.display()));
+                    }
+                }
+                let rollback_note = if rollback_errors.is_empty() { "All earlier changes were rolled back.".to_owned() }
+                    else { format!("Rollback failed for {}.", rollback_errors.join(", ")) };
+                return Err(format!("Rename stopped: {e}. {rollback_note}"));
             }
-            succeeded.push(source.clone());
+            succeeded.push((source.clone(), dest.clone()));
+            progress(index + 1, ordered.len(), source);
         }
-        Ok(())
+        Ok(Some(crate::context_menu::files::HistoryRecord {
+            undo: crate::context_menu::files::HistoryAction::Move(history_pairs.iter().rev().map(|(source, destination)| (destination.clone(), source.clone())).collect()),
+            redo: crate::context_menu::files::HistoryAction::Move(history_pairs),
+        }))
     });
     state.batch_rename = None;
 }

@@ -107,6 +107,7 @@ fn attach_to(
                 .item(item("Extract to folder", IconName::Archive, Command::ExtractZip, owner.clone()).disabled(count != 1 || !zip_selected))
                 .item(item("Cut", IconName::Scissors, Command::Cut, owner.clone()))
                 .item(item("Copy", IconName::Copy, Command::Copy, owner.clone()))
+                .item(item("Create symbolic link…", IconName::Link, Command::CreateLink, owner.clone()).disabled(count != 1 || in_trash))
                 .item(
                     item("Rename…", IconName::Pencil, Command::Rename, owner.clone())
                         .disabled(count != 1),

@@ -16,11 +16,11 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 | Delete and restore files | ✅ | Move items to desktop Trash, restore them to their original locations, or permanently delete them. |
 | Trash management | ✅ | Browse Trash, restore selected items, permanently delete selected items, or empty Trash. |
 | Permanent deletion | ✅ | Confirmation before deletion. |
-| Undo and redo | 🟡 | Ctrl+Z / Ctrl+Y or toolbar buttons reverse and replay create, rename, copy/paste, move, trash/restore, and ZIP extraction. Permanent deletion, emptying Trash, and batch rename are not undoable. |
-| Create symbolic links | 🟡 | “Paste as link” creates a symbolic link to copied paths; no general link wizard. |
-| Drag and drop | 🟡 | Internal drag of selected items onto folders moves them; dragging a folder onto the sidebar bookmarks it. General desktop/file-URI drag-and-drop is not evident. |
-| File operation progress | 🟡 | Shows a generic “Working…” indicator while an operation runs; no measured progress or per-item status. |
-| File conflict handling | 🟡 | Refuses to overwrite and reports an error for other name conflicts; same-folder copy creates a numbered duplicate. No replace/skip choices. |
+| Undo and redo | ✅ | Ctrl+Z / Ctrl+Y or Ctrl+Shift+Z and toolbar buttons reverse/replay create, rename, batch rename, links, copy/paste, moves, trash/restore, conflict replacements, and ZIP extraction. Permanent deletion and emptying Trash remain irreversible. |
+| Create symbolic links | ✅ | Paste as link and a selected-item link wizard with a custom destination name. |
+| Drag and drop | ✅ | Internal moves, native file-URI drops into the pane/folders/sidebar places, outbound file drags, and folder bookmarking are supported. External drops copy; internal drags move. |
+| File operation progress | ✅ | Long-running operations report completed/total items and the current item name, including copy, move, trash, restore, delete, batch rename, and empty Trash. |
+| File conflict handling | ✅ | Copy and move conflicts offer Replace, Skip, Keep Both, or Cancel. Same-folder copies automatically create numbered duplicates; replace keeps the previous item in Trash for undo. |
 
 ## 2. Navigation
 

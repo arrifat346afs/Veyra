@@ -47,6 +47,11 @@ pub fn area(body: AnyElement, selection: &Selection, picker: bool, cx: &mut Cont
     let radius=cx.theme().radius;
     let color=cx.theme().primary;
     let area = div().id("selection-area").relative().flex_1().min_h(px(0.)).w_full().overflow_hidden()
+        .on_drop(cx.listener(|state, paths: &ExternalPaths, window, cx| {
+            if state.picker.is_none() && !crate::context_menu::files::is_trash_location(&state.current_dir) {
+                crate::context_menu::actions::copy_paths_to(paths.paths().to_vec(), state.current_dir.clone(), state, window, cx);
+            }
+        }))
         .on_mouse_down(MouseButton::Left,cx.listener(|state,event: &MouseDownEvent,window,cx| {
             state.focus.focus(window,cx);
             if event.modifiers.control || event.modifiers.shift { state.selection.baseline=state.selection.selected.clone(); }

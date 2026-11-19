@@ -13,6 +13,13 @@ use gpui_kit::component::{ActiveTheme as _, Theme, ThemeRegistry};
 use crate::layouts::{content, sidebar, topbar};
 use gpui_kit::component::input::{InputState, InputEvent};
 
+#[derive(Clone)]
+pub(crate) struct FileOperationProgress {
+    pub completed: usize,
+    pub total: usize,
+    pub current: PathBuf,
+}
+
 pub struct MainWindow {
     pub(crate) quick_preview: super::quick_preview::State,
     pub(crate) portal_settings: crate::settings::file_picker::State,
@@ -35,6 +42,7 @@ pub struct MainWindow {
     pub(crate) batch_rename: Option<crate::batch_rename::BatchRename>,
     pub(crate) file_dialog: Option<crate::context_menu::dialog::Dialog>,
     pub(crate) file_operation_busy: bool,
+    pub(crate) file_operation_progress: Option<FileOperationProgress>,
     pub(crate) undo_history: Vec<crate::context_menu::files::HistoryRecord>,
     pub(crate) redo_history: Vec<crate::context_menu::files::HistoryRecord>,
     pub(crate) cut_clipboard: Option<String>,
@@ -67,6 +75,7 @@ impl MainWindow {
             if preferences.custom_theme_enabled && !preferences.custom_theme_path.is_empty() {
                 if let Err(error) = crate::settings::theme::apply(&preferences.custom_theme_path, cx) { eprintln!("{error}"); }
             }
+            crate::settings::theme::transparent_scrollbar_track(cx);
             crate::settings::rounding::apply(preferences.corner_radius, cx);
             let current_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
             let current_dir = if preferences.home_start { std::env::var_os("HOME").map(PathBuf::from).unwrap_or(current_dir) } else { current_dir };
@@ -134,7 +143,7 @@ impl MainWindow {
                 });
                 let settings_sliders = crate::settings::sliders::create(&preferences,cx);
                 let theme_watch = crate::settings::theme_watch::start(cx);
-                Self { quick_preview:Default::default(), application_chooser:None, portal_settings:Default::default(), picker, _theme_watch:theme_watch, theme_error:None, batch_rename:None, file_dialog:None, file_operation_busy:false, undo_history:vec![], redo_history:vec![], cut_clipboard:None, path_bar, thumbnail_generation: 0, selection: Default::default(), settings_sliders, settings_window:None,settings_page:0,settings_search,settings_error,
+                Self { quick_preview:Default::default(), application_chooser:None, portal_settings:Default::default(), picker, _theme_watch:theme_watch, theme_error:None, batch_rename:None, file_dialog:None, file_operation_busy:false, file_operation_progress:None, undo_history:vec![], redo_history:vec![], cut_clipboard:None, path_bar, thumbnail_generation: 0, selection: Default::default(), settings_sliders, settings_window:None,settings_page:0,settings_search,settings_error,
                     focus, current_dir: current_dir.clone(), entries, error, search, back_history: vec![], forward_history: vec![], list_view: preferences.list_view, column_view: preferences.column_view, column_paths: vec![current_dir], view_menu_open:false, reverse_sort: preferences.reverse_sort, show_sidebar: preferences.show_sidebar, show_hidden: preferences.show_hidden, custom_theme_path, preferences }
             });
             // Override the component root’s opaque background so pane alpha reaches the compositor.
@@ -164,6 +173,7 @@ impl MainWindow {
         } else {
             self.theme_error=crate::settings::theme::apply(&self.preferences.custom_theme_path,cx).err();
         }
+        crate::settings::theme::transparent_scrollbar_track(cx);
         crate::settings::rounding::apply(self.preferences.corner_radius, cx);
         self.settings_error=self.preferences.save().err();
         cx.notify();
@@ -321,7 +331,13 @@ impl Render for MainWindow {
                 .child(toolbar).child(workspace)
                 .children(self.picker.as_ref().map(|_| crate::picker::footer(self,cx)))));
         if self.path_bar.editing { root = root.child(crate::components::path_bar::suggestions_overlay(self,window_width,cx)); }
-        if self.file_operation_busy && self.file_dialog.is_none() {root=root.child(div().absolute().bottom(px(16.)).right(px(16.)).p(px(12.)).rounded(cx.theme().radius).bg(palette.popover).text_color(palette.popover_foreground).child("Working…"));}
+        if self.file_operation_busy && self.file_dialog.is_none() {
+            let status = self.file_operation_progress.as_ref().map(|progress| {
+                let current = progress.current.file_name().unwrap_or_default().to_string_lossy();
+                format!("Working… {} of {} · {current}", progress.completed, progress.total)
+            }).unwrap_or_else(|| "Working…".to_owned());
+            root = root.child(div().absolute().bottom(px(16.)).right(px(16.)).p(px(12.)).rounded(cx.theme().radius).bg(palette.popover).text_color(palette.popover_foreground).child(status));
+        }
         if self.file_dialog.is_some() { root = root.child(crate::context_menu::dialog::view(self,cx)); }
         if self.batch_rename.is_some() { root = root.child(crate::batch_rename::view(self,cx)); }
         if self.application_chooser.is_some() {root=root.child(crate::context_menu::application_chooser::view(self,cx));}

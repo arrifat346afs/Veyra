@@ -26,6 +26,7 @@ pub enum Command {
     Copy,
     Cut,
     Rename,
+    CreateLink,
     BatchRename,
     Trash,
     Delete,
@@ -120,6 +121,18 @@ pub fn run(
                 cx,
             );
         }
+        Command::CreateLink => {
+            let paths = selected(state);
+            if paths.len() != 1 { return; }
+            let source = paths[0].clone();
+            let filename = source.file_name().unwrap_or_default().to_string_lossy();
+            let suggested = if let Some(extension) = source.extension() {
+                format!("{} (link).{}", source.file_stem().unwrap_or_default().to_string_lossy(), extension.to_string_lossy())
+            } else {
+                format!("{filename} (link)")
+            };
+            dialog::show(state, Kind::CreateLink(source), "Create symbolic link", "Choose the link name.", Some(suggested), window, cx);
+        }
         Command::BatchRename => {
             let paths = selected(state);
             if paths.len() < 2 {
@@ -142,28 +155,11 @@ pub fn run(
             }
             let directory = state.current_dir.clone();
             let link = matches!(command, Command::PasteLink);
-            perform_recorded(state, window, cx, move || {
-                if cut && !link {
-                    let pairs: Vec<_> = paths.iter().filter_map(|source| {
-                        source.file_name().map(|name| (source.clone(), directory.join(name)))
-                    }).collect();
-                    files::move_to(&paths, &directory).map(|()| {
-                        Some(files::HistoryRecord {
-                            undo: files::HistoryAction::Move(pairs.iter().map(|(from,to)| (to.clone(),from.clone())).collect()),
-                            redo: files::HistoryAction::Move(pairs),
-                        })
-                    })
-                } else {
-                    files::paste_with_receipt(&paths, &directory, link).map(|created| {
-                        let pairs: Vec<_> = paths.iter().cloned().zip(created.iter().cloned()).collect();
-                        Some(files::HistoryRecord {
-                            undo: files::HistoryAction::Remove(created),
-                            redo: if link { files::HistoryAction::Link(pairs) } else { files::HistoryAction::Copy(pairs) },
-                        })
-                    })
-                }
-                .map_err(|e| e.to_string())
-            });
+            if files::has_conflicts(&paths, &directory) {
+                dialog::show(state, Kind::Conflicts { sources: paths, directory, cut: cut && !link, link }, "File conflict", "A destination with the same name already exists. Choose how to handle conflicts.", None, window, cx);
+            } else {
+                transfer_paths_to(paths, directory, cut && !link, link, files::ConflictPolicy::Replace, state, window, cx);
+            }
         }
         Command::Trash => {
             let paths = selected(state);
@@ -171,11 +167,11 @@ pub fn run(
                 return;
             }
             if paths.iter().all(|path| path.to_string_lossy().starts_with("trash://")) {
-                perform(state, window, cx, move || files::delete_from_trash(&paths).map_err(|e| e.to_string()));
+                perform_progress_recorded(state, window, cx, move |progress| files::delete_from_trash_with_progress(&paths, progress).map(|()| None).map_err(|e| e.to_string()));
                 return;
             }
-            perform_recorded(state, window, cx, move || {
-                files::trash(&paths).map(|()| Some(files::HistoryRecord {
+            perform_progress_recorded(state, window, cx, move |progress| {
+                files::trash_with_progress(&paths, progress).map(|()| Some(files::HistoryRecord {
                     undo: files::HistoryAction::Restore(paths.clone()),
                     redo: files::HistoryAction::Trash(paths),
                 })).map_err(|e| e.to_string())
@@ -184,9 +180,9 @@ pub fn run(
         Command::Restore => {
             let paths = selected(state);
             if paths.is_empty() { return; }
-            perform_recorded(state, window, cx, move || {
+            perform_progress_recorded(state, window, cx, move |progress| {
                 let originals = files::originals_for_trash(&paths).map_err(|e| e.to_string())?;
-                files::restore_from_trash(&paths).map_err(|e| e.to_string())?;
+                files::restore_originals_with_progress(&originals, progress).map_err(|e| e.to_string())?;
                 Ok(Some(files::HistoryRecord {
                     undo: files::HistoryAction::Trash(originals.clone()),
                     redo: files::HistoryAction::Restore(originals),
@@ -201,11 +197,15 @@ pub fn run(
             if paths.len() != 1 || !super::files::is_zip(&paths[0]) { return; }
             let archive = paths[0].clone();
             let destination = super::files::zip_destination(&archive);
-            perform_recorded(state, window, cx, move || {
-                super::files::extract_zip_to_folder(&archive, &destination).map(|()| Some(files::HistoryRecord {
-                    undo: files::HistoryAction::Remove(vec![destination.clone()]),
-                    redo: files::HistoryAction::Extract { archive, destination },
-                }))
+            perform_progress_recorded(state, window, cx, move |progress| {
+                progress(0, 1, &archive);
+                super::files::extract_zip_to_folder(&archive, &destination).map(|()| {
+                    progress(1, 1, &archive);
+                    Some(files::HistoryRecord {
+                        undo: files::HistoryAction::Remove(vec![destination.clone()]),
+                        redo: files::HistoryAction::Extract { archive, destination },
+                    })
+                })
             });
         }
         Command::Delete => {
@@ -265,7 +265,7 @@ pub fn run(
             } else if paths.len() == 1 && super::files::is_zip(&paths[0]) {
                 let archive = paths[0].clone();
                 let destination = super::files::zip_destination(&archive);
-                perform_and_navigate(state, window, cx, destination.clone(), move || {
+                perform_and_navigate(state, window, cx, destination.clone(), archive.clone(), move || {
                     super::files::extract_zip_to_folder(&archive, &destination)
                 });
             } else {
@@ -333,6 +333,7 @@ fn perform_history(
     undoing: bool,
 ) {
     state.file_operation_busy = true;
+    state.file_operation_progress = None;
     cx.notify();
     let executor = cx.background_executor().clone();
     cx.spawn_in(window, async move |state, cx| {
@@ -340,6 +341,7 @@ fn perform_history(
         let result = executor.spawn(async move { files::apply_history_action(&action).map_err(|e| e.to_string()) }).await;
         let _ = state.update_in(cx, |state, window, cx| {
             state.file_operation_busy = false;
+            state.file_operation_progress = None;
             match result {
                 Ok(()) => {
                     if undoing { state.redo_history.push(record); } else { state.undo_history.push(record); }
@@ -364,35 +366,54 @@ pub fn message(
 ) {
     dialog::show(state, Kind::Message, title, detail, None, window, cx);
 }
-pub fn perform(
+pub fn perform_progress_recorded(
     state: &mut MainWindow,
     window: &mut Window,
     cx: &mut Context<MainWindow>,
-    job: impl FnOnce() -> Result<(), String> + Send + 'static,
+    job: impl FnOnce(&mut dyn FnMut(usize, usize, &std::path::Path)) -> Result<Option<files::HistoryRecord>, String> + Send + 'static,
 ) {
-    perform_recorded(state, window, cx, move || job().map(|()| None));
-}
-
-pub fn perform_recorded(
-    state: &mut MainWindow,
-    window: &mut Window,
-    cx: &mut Context<MainWindow>,
-    job: impl FnOnce() -> Result<Option<files::HistoryRecord>, String> + Send + 'static,
-) {
+    use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
+    use std::time::Duration;
     state.file_operation_busy = true;
+    state.file_operation_progress = None;
     cx.notify();
     let executor = cx.background_executor().clone();
     cx.spawn_in(window, async move |state, cx| {
-        let result = executor.spawn(async move { job() }).await;
+        let latest = Arc::new(Mutex::new(None::<crate::windows::FileOperationProgress>));
+        let done = Arc::new(AtomicBool::new(false));
+        let worker_latest = latest.clone();
+        let worker_done = done.clone();
+        let worker = executor.spawn(async move {
+            let mut report = |completed, total, current: &std::path::Path| {
+                *worker_latest.lock().unwrap() = Some(crate::windows::FileOperationProgress {
+                    completed, total, current: current.to_path_buf(),
+                });
+            };
+            let result = job(&mut report);
+            worker_done.store(true, Ordering::Release);
+            result
+        });
+        while !done.load(Ordering::Acquire) {
+            let progress = latest.lock().unwrap().take();
+            if let Some(progress) = progress {
+                let _ = state.update(cx, |state, cx| {
+                    state.file_operation_progress = Some(progress);
+                    cx.notify();
+                });
+            }
+            executor.timer(Duration::from_millis(80)).await;
+        }
+        let result = worker.await;
         let _ = state.update_in(cx, |state, window, cx| {
             state.file_operation_busy = false;
+            state.file_operation_progress = None;
             match result {
                 Ok(record) => {
                     state.file_dialog = None;
                     if let Some(record) = record {
                         state.undo_history.push(record);
-                        state.redo_history.clear();
                     }
+                    state.redo_history.clear();
                     let path = state.current_dir.clone();
                     state.load_directory(path, window, cx);
                 }
@@ -401,9 +422,6 @@ pub fn perform_recorded(
                     state.load_directory(path, window, cx);
                     if let Some(dialog) = state.file_dialog.as_mut() {
                         dialog.error = Some(error);
-                        if let Some(input) = dialog.input.clone() {
-                            input.update(cx, |input, cx| input.focus(window, cx));
-                        }
                         cx.notify();
                     } else {
                         message(state, "File operation failed", error, window, cx);
@@ -411,8 +429,7 @@ pub fn perform_recorded(
                 }
             }
         });
-    })
-    .detach();
+    }).detach();
 }
 
 pub fn move_paths_to(
@@ -423,12 +440,144 @@ pub fn move_paths_to(
     cx: &mut Context<MainWindow>,
 ) {
     if paths.is_empty() || paths.iter().any(|path| !path.exists()) { return; }
-    perform_recorded(state, window, cx, move || {
-        let pairs: Vec<_> = paths.iter().filter_map(|source| source.file_name().map(|name| (source.clone(), destination.join(name)))).collect();
-        files::move_to(&paths, &destination).map(|()| Some(files::HistoryRecord {
-            undo: files::HistoryAction::Move(pairs.iter().map(|(from,to)| (to.clone(),from.clone())).collect()),
-            redo: files::HistoryAction::Move(pairs),
-        })).map_err(|error| error.to_string())
+    if files::has_conflicts(&paths, &destination) {
+        dialog::show(state, Kind::Conflicts { sources: paths, directory: destination, cut: true, link: false }, "File conflict", "A destination with the same name already exists. Choose how to handle conflicts.", None, window, cx);
+    } else {
+        transfer_paths_to(paths, destination, true, false, files::ConflictPolicy::Replace, state, window, cx);
+    }
+}
+
+pub fn copy_paths_to(
+    paths: Vec<PathBuf>,
+    destination: PathBuf,
+    state: &mut MainWindow,
+    window: &mut Window,
+    cx: &mut Context<MainWindow>,
+) {
+    if paths.is_empty() || paths.iter().any(|path| !path.exists()) { return; }
+    if files::has_conflicts(&paths, &destination) {
+        dialog::show(state, Kind::Conflicts { sources: paths, directory: destination, cut: false, link: false }, "File conflict", "A destination with the same name already exists. Choose how to handle conflicts.", None, window, cx);
+    } else {
+        transfer_paths_to(paths, destination, false, false, files::ConflictPolicy::Replace, state, window, cx);
+    }
+}
+
+pub fn resolve_conflict_choice(
+    state: &mut MainWindow,
+    sources: Vec<PathBuf>,
+    destination: PathBuf,
+    cut: bool,
+    link: bool,
+    policy: files::ConflictPolicy,
+    window: &mut Window,
+    cx: &mut Context<MainWindow>,
+) {
+    state.file_dialog = None;
+    transfer_paths_to(sources, destination, cut, link, policy, state, window, cx);
+}
+
+pub fn resolve_link_conflict_choice(
+    state: &mut MainWindow,
+    source: PathBuf,
+    mut destination: PathBuf,
+    policy: files::ConflictPolicy,
+    window: &mut Window,
+    cx: &mut Context<MainWindow>,
+) {
+    state.file_dialog = None;
+    if matches!(policy, files::ConflictPolicy::Skip) {
+        state.focus.focus(window, cx);
+        cx.notify();
+        return;
+    }
+    if matches!(policy, files::ConflictPolicy::KeepBoth) || source == destination {
+        if let Some(name) = destination.file_name() {
+            destination = files::keep_both_name(destination.parent().unwrap_or_else(|| std::path::Path::new(".")), name);
+        }
+    }
+    perform_progress_recorded(state, window, cx, move |progress| {
+        let replaced = if matches!(policy, files::ConflictPolicy::Replace) && source != destination {
+            files::trash_with_progress(std::slice::from_ref(&destination), progress).map_err(|error| error.to_string())?;
+            vec![destination.clone()]
+        } else { Vec::new() };
+        progress(0, 1, &destination);
+        if let Err(error) = files::create_link(&source, &destination) {
+            let _ = files::restore_originals(&replaced);
+            return Err(error.to_string());
+        }
+        progress(1, 1, &destination);
+        let mut undo = vec![files::HistoryAction::Remove(vec![destination.clone()])];
+        if !replaced.is_empty() { undo.push(files::HistoryAction::Restore(replaced.clone())); }
+        let mut redo = Vec::new();
+        if !replaced.is_empty() { redo.push(files::HistoryAction::Trash(replaced)); }
+        redo.push(files::HistoryAction::Link(vec![(source, destination)]));
+        Ok(Some(files::HistoryRecord { undo: files::HistoryAction::Sequence(undo), redo: files::HistoryAction::Sequence(redo) }))
+    });
+}
+
+pub fn resolve_rename_conflict_choice(
+    state: &mut MainWindow,
+    source: PathBuf,
+    mut destination: PathBuf,
+    policy: files::ConflictPolicy,
+    window: &mut Window,
+    cx: &mut Context<MainWindow>,
+) {
+    state.file_dialog = None;
+    if matches!(policy, files::ConflictPolicy::Skip) {
+        state.focus.focus(window, cx);
+        cx.notify();
+        return;
+    }
+    if matches!(policy, files::ConflictPolicy::KeepBoth) {
+        if let Some(name) = destination.file_name() {
+            destination = files::keep_both_name(destination.parent().unwrap_or_else(|| std::path::Path::new(".")), name);
+        }
+    }
+    perform_progress_recorded(state, window, cx, move |progress| {
+        let replaced = if matches!(policy, files::ConflictPolicy::Replace) {
+            files::trash_with_progress(std::slice::from_ref(&destination), progress).map_err(|error| error.to_string())?;
+            vec![destination.clone()]
+        } else { Vec::new() };
+        progress(0, 1, &source);
+        if let Err(error) = files::rename(&source, &destination) {
+            let _ = files::restore_originals(&replaced);
+            return Err(error.to_string());
+        }
+        progress(1, 1, &destination);
+        let mut undo = vec![files::HistoryAction::Move(vec![(destination.clone(), source.clone())])];
+        if !replaced.is_empty() { undo.push(files::HistoryAction::Restore(replaced.clone())); }
+        let mut redo = Vec::new();
+        if !replaced.is_empty() { redo.push(files::HistoryAction::Trash(replaced)); }
+        redo.push(files::HistoryAction::Move(vec![(source, destination)]));
+        Ok(Some(files::HistoryRecord { undo: files::HistoryAction::Sequence(undo), redo: files::HistoryAction::Sequence(redo) }))
+    });
+}
+
+fn transfer_paths_to(
+    sources: Vec<PathBuf>, destination: PathBuf, cut: bool, link: bool,
+    policy: files::ConflictPolicy, state: &mut MainWindow, window: &mut Window, cx: &mut Context<MainWindow>,
+) {
+    perform_progress_recorded(state, window, cx, move |progress| {
+        if cut {
+            let (pairs, replaced) = files::move_resolving(&sources, &destination, policy, progress).map_err(|e| e.to_string())?;
+            if pairs.is_empty() && replaced.is_empty() { return Ok(None); }
+            let mut undo = vec![files::HistoryAction::Move(pairs.iter().map(|(from,to)| (to.clone(),from.clone())).collect())];
+            if !replaced.is_empty() { undo.push(files::HistoryAction::Restore(replaced.clone())); }
+            let mut redo = Vec::new();
+            if !replaced.is_empty() { redo.push(files::HistoryAction::Trash(replaced)); }
+            redo.push(files::HistoryAction::Move(pairs));
+            Ok(Some(files::HistoryRecord { undo: files::HistoryAction::Sequence(undo), redo: files::HistoryAction::Sequence(redo) }))
+        } else {
+            let receipt = files::paste_resolving(&sources, &destination, link, policy, progress).map_err(|e| e.to_string())?;
+            if receipt.created.is_empty() && receipt.replaced.is_empty() { return Ok(None); }
+            let mut undo = vec![files::HistoryAction::Remove(receipt.created.clone())];
+            if !receipt.replaced.is_empty() { undo.push(files::HistoryAction::Restore(receipt.replaced.clone())); }
+            let mut redo = Vec::new();
+            if !receipt.replaced.is_empty() { redo.push(files::HistoryAction::Trash(receipt.replaced)); }
+            redo.push(if link { files::HistoryAction::Link(receipt.pairs) } else { files::HistoryAction::Copy(receipt.pairs) });
+            Ok(Some(files::HistoryRecord { undo: files::HistoryAction::Sequence(undo), redo: files::HistoryAction::Sequence(redo) }))
+        }
     });
 }
 
@@ -437,17 +586,27 @@ fn perform_and_navigate(
     window: &mut Window,
     cx: &mut Context<MainWindow>,
     destination: PathBuf,
+    archive: PathBuf,
     job: impl FnOnce() -> Result<(), String> + Send + 'static,
 ) {
     state.file_operation_busy = true;
+    state.file_operation_progress = None;
     cx.notify();
     let executor = cx.background_executor().clone();
     cx.spawn_in(window, async move |state, cx| {
         let result = executor.spawn(async move { job() }).await;
         let _ = state.update_in(cx, |state, window, cx| {
             state.file_operation_busy = false;
+            state.file_operation_progress = None;
             match result {
-                Ok(()) => state.navigate_to(destination, window, cx),
+                Ok(()) => {
+                    state.undo_history.push(files::HistoryRecord {
+                        undo: files::HistoryAction::Remove(vec![destination.clone()]),
+                        redo: files::HistoryAction::Extract { archive, destination: destination.clone() },
+                    });
+                    state.redo_history.clear();
+                    state.navigate_to(destination, window, cx)
+                }
                 Err(error) => message(state, "Could not open ZIP archive", error, window, cx),
             }
         });

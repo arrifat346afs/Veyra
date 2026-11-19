@@ -162,6 +162,9 @@ pub(super) fn parse(source: &str) -> Result<ThemeConfig, String> {
             colors.insert(key.into(), value.clone().into());
         }
     }
+    // The scrollbar thumb should sit directly over the pane surface, without
+    // an opaque rail obscuring the content beneath it.
+    colors.insert("scrollbar.background".into(), "#00000000".into());
     let is_light = value
         .get("background")
         .and_then(|v| v.as_str())
@@ -197,7 +200,14 @@ pub fn apply(path: &str, cx: &mut gpui_kit::App) -> Result<(), String> {
     }
     let config = Rc::new(load(Path::new(path.trim()))?);
     Theme::update(cx, |theme| theme.apply_config(&config));
+    transparent_scrollbar_track(cx);
     Ok(())
+}
+
+pub fn transparent_scrollbar_track(cx: &mut gpui_kit::App) {
+    Theme::update(cx, |theme| {
+        theme.colors.scrollbar = theme.colors.scrollbar.opacity(0.0);
+    });
 }
 
 #[cfg(test)]

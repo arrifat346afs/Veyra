@@ -7,7 +7,7 @@
 
 use std::path::{Path, PathBuf};
 
-use gpui_kit::{div, px, Context, IntoElement, ParentElement, Styled};
+use gpui_kit::{div, px, Context, ExternalPaths, IntoElement, ParentElement, Styled};
 use gpui_kit::prelude::*;
 use gpui_kit::component::{ActiveTheme as _, Icon};
 use gpui_kit_assets::IconName;
@@ -53,6 +53,7 @@ pub fn sidebar(current_dir: &Path, cx: &mut Context<MainWindow>) -> impl IntoEle
             // A bookmark has two independent click targets: its label navigates
             // and its trailing × removes it from the app-owned store.
             let target = bookmark.path.clone();
+            let drop_destination = bookmark.path.clone();
             let remove_target = bookmark.path.clone();
             let selected = current_dir == &bookmark.path;
             let foreground = palette.foreground;
@@ -64,6 +65,9 @@ pub fn sidebar(current_dir: &Path, cx: &mut Context<MainWindow>) -> impl IntoEle
                     .flex().items_center().gap(px(12.0)).px(px(14.0)).cursor_pointer()
                     .hover(|style| style.text_color(if selected {foreground} else {palette.primary}))
                     .on_click(cx.listener(move |this, _, window, cx| this.navigate_to(target.clone(), window, cx)))
+                    .on_drop(cx.listener(move |state, paths: &ExternalPaths, window, cx| {
+                        crate::context_menu::actions::copy_paths_to(paths.paths().to_vec(), drop_destination.clone(), state, window, cx);
+                    }))
                     .child(div().w(px(20.0)).text_color(if selected {foreground} else {palette.muted_foreground})
                         .child(Icon::new(IconName::Bookmark).size(px(18.0))))
                     .child(div().text_ellipsis().child(bookmark.name)))
@@ -84,6 +88,9 @@ pub fn sidebar(current_dir: &Path, cx: &mut Context<MainWindow>) -> impl IntoEle
 /// Render one built-in location with a shared shape and navigation behavior.
 fn location_row(label: &'static str, icon: IconName, path: PathBuf,
                 current_dir: &Path, cx: &mut Context<MainWindow>) -> impl IntoElement {
+    let external_drop_destination = path.clone();
+    let internal_drop_destination = path.clone();
+    let is_trash = crate::context_menu::files::is_trash_location(&path);
     let selected = current_dir == path;
     let palette = cx.theme().clone();
     let foreground = palette.foreground;
@@ -94,6 +101,22 @@ fn location_row(label: &'static str, icon: IconName, path: PathBuf,
         .hover(|style| style.bg(if selected {palette.primary.opacity(0.28)} else {palette.primary.opacity(0.14)})
             .text_color(if selected {foreground} else {palette.primary}))
         .on_click(cx.listener(move |this, _, window, cx| this.navigate_to(path.clone(), window, cx)))
+        .on_drop(cx.listener(move |state, paths: &ExternalPaths, window, cx| {
+            if is_trash {
+                state.selection.selected = paths.paths().iter().cloned().collect();
+                crate::context_menu::actions::run(crate::context_menu::actions::Command::Trash, state, window, cx);
+            } else {
+                crate::context_menu::actions::copy_paths_to(paths.paths().to_vec(), external_drop_destination.clone(), state, window, cx);
+            }
+        }))
+        .on_drop(cx.listener(move |state, drag: &crate::components::folder_drag::FolderDrag, window, cx| {
+            if is_trash {
+                state.selection.selected = drag.paths.iter().cloned().collect();
+                crate::context_menu::actions::run(crate::context_menu::actions::Command::Trash, state, window, cx);
+            } else {
+                crate::context_menu::actions::move_paths_to(drag.paths.clone(), internal_drop_destination.clone(), state, window, cx);
+            }
+        }))
         .child(div().w(px(20.0)).text_color(if selected {foreground} else {palette.muted_foreground})
             .child(Icon::new(icon).size(px(18.0))))
         .child(div().text_ellipsis().child(label))
