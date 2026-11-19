@@ -44,6 +44,7 @@ pub fn panel(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
                             match crate::settings::theme::apply(&path,cx) {
                                 Ok(())=> {
                                     s.preferences.custom_theme_path=path;
+                                    s.preferences.custom_theme_enabled=true;
                                     s.theme_error=None;
                                     s.apply_preferences(window,cx);
                                 },

@@ -40,23 +40,23 @@ pub fn start(cx: &mut Context<MainWindow>) -> Task<()> {
         loop {
             executor.timer(Duration::from_millis(500)).await;
             let Ok(path) = state.update(cx, |state, _| {
-                state.preferences.custom_theme_path.trim().to_owned()
+                (state.preferences.custom_theme_enabled, state.preferences.custom_theme_path.trim().to_owned())
             }) else {
                 break;
             };
-            if path.is_empty() {
+            if !path.0 || path.1.is_empty() {
                 changes = Changes::default();
                 continue;
             }
-            let read_path = path.clone();
+            let read_path = path.1.clone();
             let contents = executor.spawn(async move { read(&read_path) }).await;
-            if !changes.changed(&path, &contents) {
+            if !changes.changed(&path.1, &contents) {
                 continue;
             }
             if state
                 .update(cx, |state, cx| {
                     // A new file may have been selected while the old file was read.
-                    if state.preferences.custom_theme_path.trim() != path {
+                    if !state.preferences.custom_theme_enabled || state.preferences.custom_theme_path.trim() != path.1 {
                         return;
                     }
                     match parse(contents) {

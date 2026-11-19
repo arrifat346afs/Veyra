@@ -10,6 +10,7 @@ pub struct Preferences {
     pub case_sensitive: bool, pub show_sidebar: bool,
     pub light_theme: bool, pub home_start: bool,
     pub custom_theme_path: String,
+    pub custom_theme_enabled: bool,
     pub window_opacity: usize, pub sidebar_opacity: usize,
     pub corner_radius: usize,
 }
@@ -17,7 +18,7 @@ impl Default for Preferences {
     fn default() -> Self { Self { show_thumbnails:true, list_view:false, show_hidden:false, reverse_sort:false,
         folders_first:true, sort_by:0, icon_size:112, density:1, filename_size:12,
         show_sizes:true, case_sensitive:false, show_sidebar:true,
-        light_theme:false, home_start:false, custom_theme_path:String::new(), window_opacity:100, sidebar_opacity:100, corner_radius:8 } }
+        light_theme:false, home_start:false, custom_theme_path:String::new(), custom_theme_enabled:false, window_opacity:100, sidebar_opacity:100, corner_radius:8 } }
 }
 fn path() -> PathBuf {
     std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from)
@@ -30,7 +31,17 @@ impl Preferences {
 
     pub fn load() -> Result<Self, String> {
         match fs::read(path()) {
-            Ok(bytes) => serde_json::from_slice(&bytes).map_err(|e| format!("Could not read settings: {e}")),
+            Ok(bytes) => {
+                let has_custom_selection = serde_json::from_slice::<serde_json::Value>(&bytes)
+                    .ok().and_then(|value| value.get("custom_theme_enabled").cloned()).is_some();
+                let mut preferences: Self = serde_json::from_slice(&bytes)
+                    .map_err(|e| format!("Could not read settings: {e}"))?;
+                // Existing settings used a nonempty path to mean the custom theme was active.
+                if !has_custom_selection && !preferences.custom_theme_path.trim().is_empty() {
+                    preferences.custom_theme_enabled = true;
+                }
+                Ok(preferences)
+            }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
             Err(e) => Err(format!("Could not read settings: {e}")),
         }

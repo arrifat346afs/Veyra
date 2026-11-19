@@ -8,7 +8,7 @@
 use std::{fs, path::PathBuf};
 
 use gpui_kit::*;
-use gpui_kit::component::ActiveTheme as _;
+use gpui_kit::component::{ActiveTheme as _, Theme, ThemeRegistry};
 
 use crate::layouts::{content, sidebar, topbar};
 use gpui_kit::component::input::{InputState, InputEvent};
@@ -59,7 +59,7 @@ impl MainWindow {
                 Ok(p)=>(p,None), Err(e)=>(Default::default(),Some(e))
             };
             gpui_kit::component::Theme::change(if preferences.light_theme {gpui_kit::component::ThemeMode::Light} else {gpui_kit::component::ThemeMode::Dark}, Some(window), cx);
-            if !preferences.custom_theme_path.is_empty() {
+            if preferences.custom_theme_enabled && !preferences.custom_theme_path.is_empty() {
                 if let Err(error) = crate::settings::theme::apply(&preferences.custom_theme_path, cx) { eprintln!("{error}"); }
             }
             crate::settings::rounding::apply(preferences.corner_radius, cx);
@@ -142,8 +142,17 @@ impl MainWindow {
         self.reverse_sort=self.preferences.reverse_sort;
         self.show_hidden=self.preferences.show_hidden;
         self.show_sidebar=self.preferences.show_sidebar;
-        if self.preferences.custom_theme_path.trim().is_empty() {
-            gpui_kit::component::Theme::change(if self.preferences.light_theme {gpui_kit::component::ThemeMode::Light} else {gpui_kit::component::ThemeMode::Dark},Some(window),cx);
+        if !self.preferences.custom_theme_enabled {
+            // Custom JSON replaces the registered theme for its mode. Restore
+            // the built-in configs before asking Theme::change to reload it.
+            let registry = ThemeRegistry::global(cx);
+            let light = registry.default_light_theme().clone();
+            let dark = registry.default_dark_theme().clone();
+            Theme::update(cx, |theme| {
+                theme.light_theme = light;
+                theme.dark_theme = dark;
+            });
+            Theme::change(if self.preferences.light_theme {gpui_kit::component::ThemeMode::Light} else {gpui_kit::component::ThemeMode::Dark},Some(window),cx);
             self.theme_error=None;
         } else {
             self.theme_error=crate::settings::theme::apply(&self.preferences.custom_theme_path,cx).err();
