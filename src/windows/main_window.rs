@@ -218,6 +218,7 @@ impl MainWindow {
         self.entries = entries;
         self.error = error;
         self.selection.cursor = None;
+        self.selection.anchor = None;
         cx.notify();
     }
     /// Switch the active location and reload its visible entries.
@@ -257,6 +258,16 @@ impl MainWindow {
         self.entries = entries;
         self.error = error;
         cx.notify();
+    }
+
+    pub(crate) fn reconcile_entries_after_operation(&mut self) {
+        if crate::context_menu::files::is_trash_location(&self.current_dir) {
+            let (entries, error) = read_directory(&self.current_dir);
+            self.entries = entries;
+            self.error = error;
+        } else {
+            self.entries.retain(|entry| entry.exists());
+        }
     }
 
     fn remember_location(&mut self) {
@@ -325,6 +336,7 @@ impl Render for MainWindow {
         if !self.column_view { self.selection.selected.retain(|path| visible.contains(path)); }
         if self.selection.cursor.as_ref().is_some_and(|path| !visible.contains(path)) {
             self.selection.cursor = None;
+            self.selection.anchor = None;
         }
         self.selection.visible = visible.clone();
         let main_content = content::content(

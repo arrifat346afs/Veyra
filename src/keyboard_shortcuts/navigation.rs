@@ -106,6 +106,7 @@ pub(super) fn handle(
             selection.selected.clear();
             selection.selected.insert(path.clone());
             selection.cursor = Some(path.clone());
+            selection.anchor = Some(path.clone());
             if let Some(bounds) = geometry.items.get(&path) {
                 let viewport = geometry.viewport;
                 let delta = if bounds.top() < viewport.top() {

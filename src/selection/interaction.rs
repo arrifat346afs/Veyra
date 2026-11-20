@@ -21,10 +21,18 @@ pub fn item(tile: Stateful<Div>, path: PathBuf, selection: &Selection, picker: b
         .hover(move |style| style.bg(hover_color))
         .on_mouse_down(MouseButton::Left,cx.listener(move |state,event: &MouseDownEvent,window,cx| {
             state.focus.focus(window,cx);
+            let multiple = state.picker.as_ref().is_none_or(|p| p.request.multiple);
+            let previous_cursor = state.selection.cursor.clone();
             state.selection.cursor = Some(path.clone());
-            if state.picker.as_ref().is_none_or(|p| p.request.multiple) && (event.modifiers.control || event.modifiers.shift) {
+            if multiple && event.modifiers.shift {
+                let anchor = state.selection.anchor.clone().or(previous_cursor).unwrap_or_else(|| path.clone());
+                state.selection.anchor = Some(anchor.clone());
+                state.selection.select_range(&anchor, &path);
+            } else if multiple && event.modifiers.control {
+                state.selection.anchor = Some(path.clone());
                 if !state.selection.selected.insert(path.clone()) {state.selection.selected.remove(&path);}
-            } else {
+            } else if !selected {
+                state.selection.anchor = Some(path.clone());
                 state.selection.selected.clear();state.selection.selected.insert(path.clone());
             }
             if let Some(picker) = &mut state.picker {

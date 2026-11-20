@@ -1,6 +1,5 @@
 use gpui_kit::*;
 use gpui_kit::prelude::*;
-use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::component::tooltip::Tooltip;
 use crate::windows::MainWindow;
 use super::{navigation, search, views, sorting, menu};
@@ -11,12 +10,6 @@ pub fn topbar(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
         .px(px(12.)).py(px(12.))
         .child(menu::sidebar_toggle(state.preferences.foreground_alpha(), cx))
         .child(navigation::navigation(state, cx))
-        .child(super::button::button("undo", IconName::ChevronLeft, "Undo", state.preferences.foreground_alpha(), cx)
-            .when(state.undo_history.is_empty(), |button| button.text_color(cx.theme().muted_foreground))
-            .on_click(cx.listener(|state, _, window, cx| crate::context_menu::actions::run(crate::context_menu::actions::Command::Undo, state, window, cx))))
-        .child(super::button::button("redo", IconName::ChevronRight, "Redo", state.preferences.foreground_alpha(), cx)
-            .when(state.redo_history.is_empty(), |button| button.text_color(cx.theme().muted_foreground))
-            .on_click(cx.listener(|state, _, window, cx| crate::context_menu::actions::run(crate::context_menu::actions::Command::Redo, state, window, cx))))
         .when(crate::context_menu::files::is_trash_location(&state.current_dir), |bar| {
             bar.child(super::button::button("empty-trash", IconName::Trash, "Empty Trash…", state.preferences.foreground_alpha(), cx)
                 .on_click(cx.listener(|state, _, window, cx| {

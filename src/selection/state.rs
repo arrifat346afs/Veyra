@@ -1,5 +1,5 @@
 use gpui_kit::*;
-use std::{cell::RefCell, collections::{HashMap, HashSet}, path::PathBuf, rc::Rc};
+use std::{cell::RefCell, collections::{HashMap, HashSet}, path::{Path, PathBuf}, rc::Rc};
 #[derive(Default)]
 pub struct Geometry {
     pub viewport: Bounds<Pixels>,
@@ -9,6 +9,7 @@ pub struct Geometry {
 pub struct Selection {
     pub visible: Vec<PathBuf>,
     pub cursor: Option<PathBuf>,
+    pub anchor: Option<PathBuf>,
     pub scroll: ScrollHandle,
     pub selected: HashSet<PathBuf>,
     pub geometry: Rc<RefCell<Geometry>>,
@@ -19,6 +20,18 @@ pub fn rectangle(a: Point<Pixels>, b: Point<Pixels>) -> Bounds<Pixels> {
     Bounds::new(point(a.x.min(b.x),a.y.min(b.y)),size((a.x-b.x).abs(),(a.y-b.y).abs()))
 }
 impl Selection {
+    pub fn select_range(&mut self, anchor: &Path, target: &Path) {
+        self.selected.clear();
+        let (Some(start), Some(end)) = (
+            self.visible.iter().position(|path| path == anchor),
+            self.visible.iter().position(|path| path == target),
+        ) else {
+            self.selected.insert(target.to_path_buf());
+            return;
+        };
+        self.selected.extend(self.visible[start.min(end)..=start.max(end)].iter().cloned());
+    }
+
     pub fn update(&mut self, position: Point<Pixels>) {
         if let Some((start,_)) = self.drag {
             let geometry=self.geometry.borrow();

@@ -25,6 +25,7 @@ pub enum Command {
     Properties,
     ExtractZip,
     Copy,
+    CopyPath,
     Cut,
     Rename,
     CreateLink,
@@ -160,6 +161,13 @@ pub fn run(
             }
             clipboard::write(state, &paths, matches!(command, Command::Cut), cx);
             cx.notify();
+        }
+        Command::CopyPath => {
+            let paths = selected(state);
+            if paths.is_empty() { return; }
+            state.cut_clipboard = None;
+            cx.write_to_clipboard(ClipboardItem::new_string(paths.iter()
+                .map(|path| path.to_string_lossy()).collect::<Vec<_>>().join("\n")));
         }
         Command::Paste | Command::PasteLink => {
             let (paths, cut) = clipboard::read(state, cx);
@@ -359,8 +367,8 @@ fn perform_history(
             match result {
                 Ok(()) => {
                     if undoing { state.redo_history.push(record); } else { state.undo_history.push(record); }
-                    let path = state.current_dir.clone();
-                    state.load_directory(path, window, cx);
+                    state.reconcile_entries_after_operation();
+                    cx.notify();
                 }
                 Err(error) => {
                     if undoing { state.undo_history.push(record); } else { state.redo_history.push(record); }
@@ -428,8 +436,8 @@ pub fn perform_progress_recorded(
                         state.undo_history.push(record);
                     }
                     state.redo_history.clear();
-                    let path = state.current_dir.clone();
-                    state.load_directory(path, window, cx);
+                    state.reconcile_entries_after_operation();
+                    cx.notify();
                 }
                 Err(error) => {
                     let path = state.current_dir.clone();

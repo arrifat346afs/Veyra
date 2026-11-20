@@ -72,9 +72,11 @@ pub fn sidebar(current_dir: &Path, cx: &mut Context<MainWindow>) -> impl IntoEle
             let target = bookmark.path.clone();
             let drop_destination = bookmark.path.clone();
             let remove_target = bookmark.path.clone();
+            let hover_group = format!("bookmark-row-{}", bookmark.path.display());
             let selected = current_dir == &bookmark.path;
             let foreground = palette.foreground;
             div().h(px(42.0)).flex_shrink_0().w_full().flex().items_center().rounded(cx.theme().radius)
+                .group(hover_group.clone())
                 .text_color(foreground)
                 .when(selected, |row| row.bg(palette.primary.opacity(0.22)))
                 .hover(|style| style.bg(if selected {palette.primary.opacity(0.28)} else {palette.primary.opacity(0.14)}))
@@ -86,10 +88,12 @@ pub fn sidebar(current_dir: &Path, cx: &mut Context<MainWindow>) -> impl IntoEle
                         crate::context_menu::actions::copy_paths_to(paths.paths().to_vec(), drop_destination.clone(), state, window, cx);
                     }))
                     .child(div().w(px(20.0)).text_color(if selected {foreground} else {palette.muted_foreground})
-                        .child(Icon::new(IconName::Bookmark).size(px(18.0))))
+                        .child(Icon::new(IconName::Folder).size(px(18.0))))
                     .child(div().text_ellipsis().child(bookmark.name)))
                 .child(div().id(format!("remove-{}", bookmark.path.display())).w(px(36.)).h_full()
                     .flex_shrink_0().flex().items_center().justify_center()
+                    .opacity(0.)
+                    .group_hover(hover_group, |style| style.opacity(1.))
                     .text_color(if selected {foreground} else {palette.muted_foreground}).cursor_pointer()
                     .hover(|style| style.text_color(palette.danger_foreground))
                     .child(Icon::new(IconName::X).size(px(16.0)))

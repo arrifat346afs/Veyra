@@ -184,7 +184,8 @@ fn selection_menu(
     menu = menu.separator()
         .item(item("Toggle Starred", IconName::Star, Command::ToggleStar, owner.clone()))
         .item(item("Cut", IconName::Scissors, Command::Cut, owner.clone()))
-        .item(item("Copy", IconName::Copy, Command::Copy, owner.clone()));
+        .item(item("Copy", IconName::Copy, Command::Copy, owner.clone()))
+        .item(item("Copy Path", IconName::Copy, Command::CopyPath, owner.clone()));
     if single {
         menu = menu.item(item("Create symbolic link…", IconName::Link, Command::CreateLink, owner.clone()))
             .item(item("Rename…", IconName::Pencil, Command::Rename, owner.clone()));

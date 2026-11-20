@@ -18,7 +18,7 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 | Permanent deletion | ✅ | Confirmation before deletion. |
 | Undo and redo | ✅ | Ctrl+Z / Ctrl+Y or Ctrl+Shift+Z and toolbar buttons reverse/replay create, rename, batch rename, links, copy/paste, moves, trash/restore, conflict replacements, and ZIP extraction. Permanent deletion and emptying Trash remain irreversible. |
 | Create symbolic links | ✅ | Paste as link and a selected-item link wizard with a custom destination name. |
-| Drag and drop | ✅ | Internal moves, native file-URI drops into the pane/folders/sidebar places, outbound file drags, and folder bookmarking are supported. External drops copy; internal drags move. |
+| Drag and drop | ✅ | Internal moves, native file-URI drops into the pane/folders/sidebar places, outbound single- or multi-selection file drags, and folder bookmarking are supported. External drops copy; internal drags move. |
 | File operation progress | ✅ | Long-running operations report completed/total items and the current item name, including copy, move, trash, restore, delete, batch rename, and empty Trash. |
 | File conflict handling | ✅ | Copy and move conflicts offer Replace, Skip, Keep Both, or Cancel. Same-folder copies automatically create numbered duplicates; replace keeps the previous item in Trash for undo. |
 
@@ -33,21 +33,21 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 | Multiple tabs | ✅ | Ctrl+T opens a tab. With multiple tabs, a strip in the main pane above the toolbar lets you switch tabs, close any tab, or add one from the far right; the sidebar stays in place. Ctrl+Tab switches tabs, and Ctrl+W closes the active tab. Each tab restores its last folder. |
 | Multiple windows | ✅ | The new-window control or Ctrl+N opens an independent file-browser window at the current folder. Settings and picker windows remain available. |
 | Restore last location | ✅ | Reopens the last visited folder when starting the application. |
-| Live directory updates | ✅ | Refreshes the visible folder when files are created, renamed, moved, or removed externally. |
+| Live directory updates | ✅ | Applies file operation results to the visible entries without resetting selection or scroll; the watcher picks up external changes and newly added items. |
 | Keyboard shortcuts | ✅ | Navigation, selection, view, file operations, hidden files, and settings shortcuts are available. See the existing README. |
 | Recent files | ✅ | Sidebar view records up to 100 files opened directly or with an application and keeps the list across launches. Missing files are omitted. |
 | Starred files | ✅ | Toggle Starred from an item’s context menu; the sidebar view persists starred files and folders across launches. |
 | Hidden files | ✅ | Toggle dotfiles with Ctrl+H or the context menu; preference is stored. |
-| Context menus | ✅ | Actions follow the target: archive extraction appears for a single ZIP, folder actions for a single folder, and batch actions for multiple selected items. Empty-space and Trash menus provide directory-level actions. |
+| Context menus | ✅ | Actions follow the target: archive extraction appears for a single ZIP, folder actions for a single folder, and batch actions for multiple selected items. File and folder menus include Copy for file transfer and Copy Path for copying the filesystem path as text. Empty-space and Trash menus provide directory-level actions. |
 
 ## 3. Sidebar and bookmarks
 
 | Feature | Status | Notes |
 |---|---|---|
 | Home and standard folders | ✅ | Home, Desktop, Documents, Downloads, Pictures, Music, Videos, and filesystem root. |
-| Custom bookmarks | ✅ | Persistent app-owned bookmarks; first run can import GTK bookmarks. |
+| Custom bookmarks | ✅ | Persistent app-owned bookmarks with folder icons; first run can import GTK bookmarks. |
 | Add bookmarks | ✅ | Context menu or drag a folder to the sidebar. |
-| Remove bookmarks | ✅ | Remove control on each bookmark row. |
+| Remove bookmarks | ✅ | Remove control appears when hovering over a bookmark row. |
 | Open sidebar locations in a new tab or window | ✅ | Right-click a place or bookmark to open it in a new tab or window. |
 | Rename bookmarks | ✅ | Rename from a bookmark's context menu; custom names persist with the bookmark. |
 | Reorder bookmarks | ✅ | Move a bookmark up or down from its context menu. |
