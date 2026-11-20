@@ -1,6 +1,6 @@
 <div align="center">
 
-# Veyra
+<h1><img src="icons/hicolor/512x512/apps/veyra.png" alt="" width="48" height="48" valign="middle"> Veyra</h1>
 
 ### A modern file manager for Linux
 
