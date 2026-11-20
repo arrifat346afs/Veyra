@@ -33,6 +33,7 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 | Multiple tabs | ✅ | Ctrl+T opens a tab. With multiple tabs, a strip in the main pane above the toolbar lets you switch tabs, close any tab, or add one from the far right; the sidebar stays in place. Ctrl+Tab switches tabs, and Ctrl+W closes the active tab. Each tab restores its last folder. |
 | Multiple windows | ✅ | The new-window control or Ctrl+N opens an independent file-browser window at the current folder. Settings and picker windows remain available. |
 | Restore last location | ✅ | Reopens the last visited folder when starting the application. |
+| Live directory updates | ✅ | Refreshes the visible folder when files are created, renamed, moved, or removed externally. |
 | Keyboard shortcuts | ✅ | Navigation, selection, view, file operations, hidden files, and settings shortcuts are available. See the existing README. |
 | Recent files | ✅ | Sidebar view records up to 100 files opened directly or with an application and keeps the list across launches. Missing files are omitted. |
 | Starred files | ✅ | Toggle Starred from an item’s context menu; the sidebar view persists starred files and folders across launches. |

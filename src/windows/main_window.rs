@@ -38,6 +38,7 @@ pub struct MainWindow {
     pub(crate) settings_error: Option<String>,
     pub(crate) theme_error: Option<String>,
     _theme_watch: Task<()>,
+    _directory_watch: Task<()>,
     pub(crate) focus: FocusHandle,
     pub(crate) application_chooser: Option<crate::context_menu::application_chooser::Chooser>,
     pub(crate) batch_rename: Option<crate::batch_rename::BatchRename>,
@@ -155,7 +156,8 @@ impl MainWindow {
                 });
                 let settings_sliders = crate::settings::sliders::create(&preferences,cx);
                 let theme_watch = crate::settings::theme_watch::start(cx);
-                Self { quick_preview:Default::default(), application_chooser:None, portal_settings:Default::default(), picker, _theme_watch:theme_watch, theme_error:None, batch_rename:None, file_dialog:None, file_operation_busy:false, file_operation_progress:None, undo_history:vec![], redo_history:vec![], cut_clipboard:None, path_bar, thumbnail_generation: 0, selection: Default::default(), settings_sliders, settings_window:None,settings_page:0,settings_search,settings_error,
+                let directory_watch = super::directory_watch::start(cx);
+                Self { quick_preview:Default::default(), application_chooser:None, portal_settings:Default::default(), picker, _theme_watch:theme_watch, _directory_watch:directory_watch, theme_error:None, batch_rename:None, file_dialog:None, file_operation_busy:false, file_operation_progress:None, undo_history:vec![], redo_history:vec![], cut_clipboard:None, path_bar, thumbnail_generation: 0, selection: Default::default(), settings_sliders, settings_window:None,settings_page:0,settings_search,settings_error,
                     focus, current_dir: current_dir.clone(), entries, error, search, back_history: vec![], forward_history: vec![], tabs: super::tabs::Tabs::new(current_dir.clone()), list_view: preferences.list_view, column_view: preferences.column_view, column_paths: vec![current_dir], view_menu_open:false, reverse_sort: preferences.reverse_sort, show_sidebar: preferences.show_sidebar, show_hidden: preferences.show_hidden, custom_theme_path, preferences }
             });
             // Override the component root’s opaque background so pane alpha reaches the compositor.
@@ -267,7 +269,7 @@ impl MainWindow {
 }
 
 /// Read a directory safely: inaccessible paths become a user-visible message.
-fn read_directory(path: &PathBuf) -> (Vec<PathBuf>, Option<String>) {
+pub(crate) fn read_directory(path: &PathBuf) -> (Vec<PathBuf>, Option<String>) {
     if path == &crate::services::navigation::recent_location() {
         return (crate::services::navigation::recent().into_iter().filter(|p| p.exists()).collect(), None);
     }
