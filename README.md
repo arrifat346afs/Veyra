@@ -1,7 +1,32 @@
+<div align="center">
+
 # Veyra
 
-A file manager for Linux, built in Rust with [GPUI](https://www.gpui.rs/) and
-[gpui-kit](https://crates.io/crates/gpui-kit).
+### A modern file manager for Linux
+
+<a href="https://www.kernel.org/"><img src="https://img.shields.io/badge/platform-Linux-4c8eda?logo=linux&logoColor=white" alt="Linux"></a> <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/built_with-Rust-orange?logo=rust&logoColor=white" alt="Built with Rust"></a> <a href="https://www.gpui.rs/"><img src="https://img.shields.io/badge/UI-GPUI-6f42c1" alt="GPUI"></a> <a href="#status"><img src="https://img.shields.io/badge/status-early_development-yellow" alt="Early development"></a>
+
+Built with [GPUI](https://www.gpui.rs/) and [gpui-kit](https://crates.io/crates/gpui-kit).
+
+</div>
+
+Veyra is a keyboard-friendly file manager with tabs, flexible views,
+image and document previews, and an optional desktop file-picker integration.
+
+<p align="center">
+  <img src="screenshot_20261119_133559-annotated.png" alt="Veyra file manager showing the home folder" width="100%">
+</p>
+
+## Contents
+
+- [Features](#features)
+- [Requirements](#requirements)
+- [Build and run](#build-and-run)
+- [Keyboard shortcuts](#keyboard-shortcuts)
+- [Data locations](#data-locations)
+- [Use Veyra as the system file picker](#use-veyra-as-the-system-file-picker)
+- [Quick Preview](#quick-preview)
+- [Status](#status)
 
 ## Features
 
