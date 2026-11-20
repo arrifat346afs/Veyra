@@ -25,6 +25,19 @@ pub const WIDTH: f32 = 270.;
 pub fn sidebar(current_dir: &Path, cx: &mut Context<MainWindow>) -> impl IntoElement {
     let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/"));
     let saved_bookmarks = bookmarks::get_bookmarks();
+    let mounted_locations: Vec<_> = {
+        use gio::prelude::*;
+        gio::VolumeMonitor::get().mounts().into_iter().filter_map(|mount| {
+            let root = mount.root();
+            let path = root.path()?;
+            if path == Path::new("/") || path == home { return None; }
+            let uri = root.uri().to_string();
+            let label = if !uri.starts_with("file://") { format!("Network: {}", mount.name()) }
+                else if mount.can_eject() { format!("Removable: {}", mount.name()) }
+                else { format!("Drive: {}", mount.name()) };
+            Some((label, path))
+        }).collect()
+    };
     // Copy the semantic palette before attaching listeners, so the complete
     // sidebar follows the active theme without embedding color values here.
     let palette = cx.theme().clone();
@@ -50,6 +63,7 @@ pub fn sidebar(current_dir: &Path, cx: &mut Context<MainWindow>) -> impl IntoEle
         .child(location_row("Music", IconName::Music, home.join("Music"), current_dir, cx))
         .child(location_row("Videos", IconName::Clapperboard, home.join("Videos"), current_dir, cx))
         .child(location_row("File system", IconName::HardDrive, PathBuf::from("/"), current_dir, cx))
+        .child(mount_rows(mounted_locations, current_dir, cx))
         .child(location_row("Trash", IconName::Trash, PathBuf::from(crate::context_menu::files::TRASH_URI), current_dir, cx))
         .when(!saved_bookmarks.is_empty(), |sidebar| sidebar.child(div().h(px(16.))))
         .children(saved_bookmarks.into_iter().map(|bookmark| {
@@ -87,6 +101,29 @@ pub fn sidebar(current_dir: &Path, cx: &mut Context<MainWindow>) -> impl IntoEle
                     })))
                 .context_menu(sidebar_menu(bookmark.path.clone(), true, cx.entity().downgrade()))
         }))
+}
+
+fn mount_rows(locations: Vec<(String, PathBuf)>, current_dir: &Path, cx: &mut Context<MainWindow>) -> impl IntoElement {
+    let mut rows = div().flex().flex_col().gap(px(4.));
+    for (label, path) in locations { rows = rows.child(location_row_owned(label, path, current_dir, cx)); }
+    rows
+}
+
+fn location_row_owned(label: String, path: PathBuf, current_dir: &Path, cx: &mut Context<MainWindow>) -> impl IntoElement {
+    let external_drop_destination = path.clone();
+    let selected = current_dir == path;
+    let palette = cx.theme().clone();
+    let foreground = palette.foreground;
+    let menu_path = path.clone();
+    div().id(format!("mount-{}", path.display())).h(px(42.0)).flex_shrink_0().w_full().flex().items_center()
+        .gap(px(12.0)).px(px(14.0)).rounded(cx.theme().radius).text_color(foreground).cursor_pointer()
+        .when(selected, |row| row.bg(palette.primary.opacity(0.22)))
+        .hover(|style| style.bg(if selected {palette.primary.opacity(0.28)} else {palette.primary.opacity(0.14)}))
+        .on_click(cx.listener(move |this, _, window, cx| this.navigate_to(path.clone(), window, cx)))
+        .on_drop(cx.listener(move |state, paths: &ExternalPaths, window, cx| crate::context_menu::actions::copy_paths_to(paths.paths().to_vec(), external_drop_destination.clone(), state, window, cx)))
+        .child(div().w(px(20.0)).text_color(palette.muted_foreground).child(Icon::new(IconName::HardDrive).size(px(18.0))))
+        .child(div().text_ellipsis().child(label))
+        .context_menu(sidebar_menu(menu_path, false, cx.entity().downgrade()))
 }
 
 /// Render one built-in location with a shared shape and navigation behavior.
@@ -146,6 +183,25 @@ fn sidebar_menu(path: PathBuf, bookmark: bool, owner: WeakEntity<MainWindow>) ->
                     let _ = window_owner.update(cx, |_, cx| crate::windows::MainWindow::open_at(window_path.clone(), cx));
                 }));
         if bookmark {
+            let rename_owner = owner.clone();
+            let rename_path = path.clone();
+            let rename_name = bookmarks::get_bookmarks().into_iter().find(|item| item.path == path).map(|item| item.name).unwrap_or_default();
+            menu = menu.item(PopupMenuItem::element(|_, _| div().h(px(36.)).pr(px(8.)).flex().items_center().child("Rename bookmark…"))
+                .icon(Icon::new(IconName::Pencil).mx(px(4.)).my(px(12.)))
+                .on_click(move |_, window, cx| {
+                    let _ = rename_owner.update(cx, |state, cx| crate::context_menu::dialog::show(state,
+                        crate::context_menu::dialog::Kind::RenameBookmark(rename_path.clone()), "Rename bookmark", "Choose a name for this sidebar bookmark.", Some(rename_name.clone()), window, cx));
+                }));
+            for (label, offset) in [("Move bookmark up", -1), ("Move bookmark down", 1)] {
+                let move_owner = owner.clone();
+                let move_path = path.clone();
+                menu = menu.item(PopupMenuItem::element(move |_, _| div().h(px(36.)).pr(px(8.)).flex().items_center().child(label))
+                    .icon(Icon::new(IconName::Bookmark).mx(px(4.)).my(px(12.)))
+                    .on_click(move |_, _, cx| {
+                        if let Err(error) = bookmarks::move_bookmark(&move_path, offset) { eprintln!("Could not reorder bookmark: {error}"); }
+                        let _ = move_owner.update(cx, |_, cx| cx.notify());
+                    }));
+            }
             let remove_owner = owner.clone();
             let remove_path = path.clone();
             menu = menu.item(PopupMenuItem::element(|_, _| div().h(px(36.)).pr(px(8.)).flex().items_center().child("Remove bookmark"))

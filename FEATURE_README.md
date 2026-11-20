@@ -49,11 +49,11 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 | Add bookmarks | ✅ | Context menu or drag a folder to the sidebar. |
 | Remove bookmarks | ✅ | Remove control on each bookmark row. |
 | Open sidebar locations in a new tab or window | ✅ | Right-click a place or bookmark to open it in a new tab or window. |
-| Rename bookmarks | ❌ | Names are derived from the folder name. |
-| Reorder bookmarks | ❌ | No reorder interaction or ordering controls. |
-| Mounted drives | ❌ | No device discovery or drive list. |
-| Removable devices | ❌ | No removable-device management. |
-| Network locations | ❌ | No network-location browser. |
+| Rename bookmarks | ✅ | Rename from a bookmark's context menu; custom names persist with the bookmark. |
+| Reorder bookmarks | ✅ | Move a bookmark up or down from its context menu. |
+| Mounted drives | ✅ | GIO-mounted locations with local paths appear in the sidebar. |
+| Removable devices | 🟡 | Mounted removable volumes that GIO marks ejectable appear; device eject/unmount controls are not implemented. |
+| Network locations | 🟡 | Connected GIO network mounts with local paths appear; connecting to a server from the sidebar is not implemented. |
 | Trash shortcut | ✅ | Sidebar entry opens the GIO Trash location. |
 
 ## 4. File views

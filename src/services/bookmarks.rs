@@ -59,6 +59,23 @@ pub fn remove_bookmark(path: &Path) -> io::Result<()> {
     save(&bookmarks)
 }
 
+pub fn rename_bookmark(path: &Path, name: String) -> io::Result<()> {
+    let mut bookmarks = get_bookmarks();
+    let bookmark = bookmarks.iter_mut().find(|bookmark| bookmark.path == path)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "Bookmark no longer exists"))?;
+    bookmark.name = name;
+    save(&bookmarks)
+}
+
+pub fn move_bookmark(path: &Path, offset: isize) -> io::Result<()> {
+    let mut bookmarks = get_bookmarks();
+    let Some(index) = bookmarks.iter().position(|bookmark| bookmark.path == path) else { return Ok(()) };
+    let destination = (index as isize + offset).clamp(0, bookmarks.len().saturating_sub(1) as isize) as usize;
+    let bookmark = bookmarks.remove(index);
+    bookmarks.insert(destination, bookmark);
+    save(&bookmarks)
+}
+
 /// Persist a complete bookmark list, creating the app data directory as needed.
 fn save(bookmarks: &[Bookmark]) -> io::Result<()> {
     let Some(file) = storage_path() else {
@@ -69,16 +86,17 @@ fn save(bookmarks: &[Bookmark]) -> io::Result<()> {
 
 fn save_to(file: &Path, bookmarks: &[Bookmark]) -> io::Result<()> {
     if let Some(parent) = file.parent() { fs::create_dir_all(parent)?; }
-    let body = bookmarks.iter().map(|bookmark| bookmark.path.to_string_lossy().into_owned())
+    let body = bookmarks.iter().map(|bookmark| format!("{}\t{}", bookmark.path.to_string_lossy(), bookmark.name))
         .collect::<Vec<_>>().join("\n");
     fs::write(file, body)
 }
 
 fn parse(text: &str) -> Vec<Bookmark> {
     text.lines().filter_map(|line| {
-        let path = PathBuf::from(line.trim());
+        let (path, name) = line.trim().split_once('\t').map_or((line.trim(), None), |(path, name)| (path, Some(name)));
         if line.trim().is_empty() { return None; }
-        Some(Bookmark { name: display_name(&path), path })
+        let path = PathBuf::from(path);
+        Some(Bookmark { name: name.filter(|name| !name.is_empty()).map(str::to_owned).unwrap_or_else(|| display_name(&path)), path })
     }).collect()
 }
 

@@ -13,6 +13,7 @@ use std::path::PathBuf;
 pub enum Kind {
     Create { directory: PathBuf, folder: bool },
     Rename(PathBuf),
+    RenameBookmark(PathBuf),
     CreateLink(PathBuf),
     Delete(Vec<PathBuf>),
     EmptyTrash,
@@ -98,6 +99,18 @@ pub fn submit(state: &mut MainWindow, window: &mut Window, cx: &mut Context<Main
         .as_ref()
         .map(|input| input.read(cx).value().to_string())
         .unwrap_or_default();
+    if let Kind::RenameBookmark(path) = kind {
+        let name = name.trim().to_string();
+        if name.is_empty() || name.chars().any(char::is_control) {
+            state.file_dialog.as_mut().unwrap().error = Some("Enter a bookmark name without control characters.".into());
+        } else if let Err(error) = crate::services::bookmarks::rename_bookmark(&path, name) {
+            state.file_dialog.as_mut().unwrap().error = Some(error.to_string());
+        } else {
+            close(state, window, cx);
+        }
+        cx.notify();
+        return;
+    }
     if let Kind::PickerOverwrite(paths) = &kind {
         if let Some(picker) = &state.picker {
             if let Err(error) = crate::picker::finish(&picker.request,paths,cx) {
@@ -173,6 +186,7 @@ pub fn submit(state: &mut MainWindow, window: &mut Window, cx: &mut Context<Main
                 progress(1, 1, &destination);
                 result
             }
+            Kind::RenameBookmark(_) => Ok(None),
             Kind::CreateLink(source) => {
                 let destination = source.parent().unwrap_or_else(|| std::path::Path::new(".")).join(name);
                 progress(0, 1, &source);
@@ -215,7 +229,7 @@ pub fn view(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
     let label = match dialog.kind {
         Kind::Create { folder: true, .. } => "Create folder",
         Kind::Create { .. } => "Create file",
-        Kind::Rename(_) => "Rename",
+        Kind::Rename(_) | Kind::RenameBookmark(_) => "Rename",
         Kind::CreateLink(_) => "Create link",
         Kind::Delete(_) => "Delete permanently",
         Kind::EmptyTrash => "Empty Trash",
