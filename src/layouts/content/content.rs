@@ -29,6 +29,7 @@ pub fn content(
     search_query: &str,
     preferences: &crate::settings::preferences::Preferences,
     selection: &crate::selection::Selection,
+    expanded_folders: &std::collections::HashMap<PathBuf, Vec<PathBuf>>,
     thumbnail_generation: u64,
     picker: bool,
     cx: &mut Context<MainWindow>,
@@ -39,11 +40,17 @@ pub fn content(
     let icon_size = preferences.icon_size.clamp(48,192) as f32;
     let spacing = [20.,12.,8.,4.][preferences.density.min(3)];
     let palette = cx.theme().clone();
-    let entry_tiles: Vec<_> = entries.iter().map(|entry| {
+    let list_entries = if list_view {
+        super::list_tree::flatten_entries(entries, expanded_folders, show_hidden, search_query, preferences)
+    } else {
+        entries.iter().cloned().map(|path| (path, 0)).collect()
+    };
+    let entry_tiles: Vec<_> = list_entries.iter().map(|(entry, depth)| {
         let path = entry.clone();
         let drop_destination = path.clone();
         let external_drop_destination = path.clone();
         let is_dir = entry.is_dir();
+        let expanded = expanded_folders.contains_key(entry);
         let name = display_name(entry, crate::context_menu::files::is_trash_location(current_dir));
         let icon = papirus_icon(entry, is_dir);
         let mut drag_paths: Vec<_> = if selection.selected.contains(entry) {
@@ -70,9 +77,13 @@ pub fn content(
                 .on_drop(cx.listener(move |state,paths:&ExternalPaths,window,cx| {
                     crate::context_menu::actions::copy_paths_to(paths.paths().to_vec(),external_drop_destination.clone(),state,window,cx);
                 })))
-            .when(list_view, |tile| tile.w_full().h_auto().flex_row().items_center().gap(px(12.)).py(px(4.)))
+            .when(list_view, |tile| tile.w_full().h_auto().flex_row().items_center().gap(px(12.)).py(px(4.)).pl(px(10. + *depth as f32 * 20.)))
+            .when(list_view && is_dir, |tile| {
+                tile.child(super::list_tree::disclosure(path.clone(), expanded, cx))
+            })
+            .when(list_view && !is_dir, |tile| tile.child(div().w(px(18.)).flex_shrink_0()))
             .child(if is_dir {
-                crate::components::folder_icon::view(PathBuf::from(icon), if list_view {32.} else {icon_size}, cx)
+                crate::components::folder_icon::view_for_folder(PathBuf::from(icon), entry, if list_view {32.} else {icon_size}, cx)
             } else {
                 crate::thumbnails::preview(entry, PathBuf::from(icon), preferences.show_thumbnails || appimage, if list_view {32.} else {icon_size}, thumbnail_generation)
             })
@@ -91,7 +102,7 @@ pub fn content(
     let body = div().flex_1().min_h(px(0.)).min_w(px(0.)).h_full().flex().flex_col()
         .child(if let Some(error) = error {
             div().px(px(20.0)).py(px(16.0)).text_color(palette.danger_foreground).child(error.to_owned()).into_any_element()
-        } else if entries.is_empty() {
+        } else if list_entries.is_empty() {
             div().px(px(20.0)).py(px(16.0)).text_color(palette.muted_foreground).child("This folder is empty.").into_any_element()
         } else {
             div().id("file-scroll").flex_1().min_h(px(0.)).w_full()
@@ -160,7 +171,7 @@ fn columns_content(
                         crate::context_menu::actions::copy_paths_to(paths.paths().to_vec(),external_drop_destination.clone(),state,window,cx);
                     })))
                 .child(if is_dir {
-                    crate::components::folder_icon::view(PathBuf::from(icon), 20., cx)
+                    crate::components::folder_icon::view_for_folder(PathBuf::from(icon), &entry, 20., cx)
                 } else {
                     crate::thumbnails::preview(&entry, PathBuf::from(icon), preferences.show_thumbnails, 20., thumbnail_generation)
                 })
@@ -257,7 +268,7 @@ fn papirus_icon(path: &Path, is_dir: bool) -> String {
 pub(crate) fn drag_icon(path: &Path, cx: &mut App) -> AnyElement {
     let icon = PathBuf::from(papirus_icon(path, path.is_dir()));
     if path.is_dir() {
-        crate::components::folder_icon::view(icon, 40., cx)
+        crate::components::folder_icon::view_for_folder(icon, path, 40., cx)
     } else {
         crate::thumbnails::preview(path, icon, true, 40., 0)
     }

@@ -35,8 +35,18 @@ impl Source {
             native_image(&self.path,&temporary)
         };
         if !success {
-            for mime in mime_guess::from_path(&self.path).iter() {
-                for provider in super::providers::providers().iter().filter(|p| p.supports(mime.essence_str())) {
+            for mime in detected_mimes(&self.path) {
+                let _ = fs::remove_file(&temporary);
+                if super::builtin::generate(&mime, &self.path, &temporary) && valid(&temporary) {
+                    success = true;
+                    break;
+                }
+                let _ = fs::remove_file(&temporary);
+                if super::office::generate(&mime, &self.path, &temporary) && valid(&temporary) {
+                    success = true;
+                    break;
+                }
+                for provider in super::providers::providers().iter().filter(|p| p.supports(&mime)) {
                     let _ = fs::remove_file(&temporary);
                     if provider.generate(&self.path,&temporary) && valid(&temporary) {success=true;break;}
                 }
@@ -48,6 +58,18 @@ impl Source {
         if success && current.as_ref() == Some(&snapshot) && fs::rename(&temporary,&destination).is_ok() {Some(destination)}
         else {let _ = fs::remove_file(temporary);None}
     }
+}
+fn detected_mimes(path: &std::path::Path) -> Vec<String> {
+    use std::io::Read;
+    let mut sample = [0; 16 * 1024];
+    let bytes = fs::File::open(path).ok().and_then(|mut file| file.read(&mut sample).ok()).unwrap_or(0);
+    let (content_type, _) = gio::content_type_guess(path.file_name(), Some(&sample[..bytes]));
+    let mut mimes = gio::content_type_get_mime_type(content_type.as_str())
+        .map(|mime| vec![mime.to_string()]).unwrap_or_default();
+    for mime in mime_guess::from_path(path).iter().map(|mime| mime.essence_str().to_owned()) {
+        if !mimes.contains(&mime) { mimes.push(mime); }
+    }
+    mimes
 }
 fn valid(path: &std::path::Path) -> bool {image::image_dimensions(path).is_ok_and(|(w,h)| w>0 && h>0 && w<=1024 && h<=1024)}
 fn native_image(input: &std::path::Path, output: &std::path::Path) -> bool {

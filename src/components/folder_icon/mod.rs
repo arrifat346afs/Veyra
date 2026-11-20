@@ -3,7 +3,7 @@ mod palette;
 use gpui_kit::component::{ActiveTheme as _, Icon};
 use gpui_kit::*;
 use gpui_kit_assets::IconName;
-use std::{path::PathBuf, sync::Arc};
+use std::{path::{Path, PathBuf}, sync::Arc};
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 struct Source {
@@ -53,4 +53,15 @@ pub fn view(path: PathBuf, size: f32, cx: &mut App) -> AnyElement {
         .size(px(size))
         .object_fit(ObjectFit::Contain)
         .into_any_element()
+}
+
+pub fn view_for_folder(icon: PathBuf, folder: &Path, size: f32, cx: &mut App) -> AnyElement {
+    let Some(custom) = crate::services::folder_icons::get(folder) else { return view(icon, size, cx); };
+    let custom: Resource = custom.into();
+    let fallback: Resource = icon.into();
+    let image = ImageSource::Custom(Arc::new(move |window, cx| {
+        window.use_asset::<ImgResourceLoader>(&custom, cx)
+            .or_else(|| window.use_asset::<ImgResourceLoader>(&fallback, cx))
+    }));
+    img(image).size(px(size)).object_fit(ObjectFit::Contain).into_any_element()
 }

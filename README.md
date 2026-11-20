@@ -31,8 +31,8 @@ image and document previews, and an optional desktop file-picker integration.
 ## Features
 
 - Grid and list views with adjustable icon size, label size, and spacing
-- Thumbnails: images and GIFs are decoded with `image-rs`; other formats preview
-  through any freedesktop thumbnailer installed on the system
+- Thumbnails for images, GIFs, SVGs, videos, PDFs, and Office documents;
+  registered freedesktop thumbnailers cover further formats
 - File and folder creation, rename, copy, cut/move, paste, trash, and permanent delete
 - Open files in their default application for reading and editing
 - Open with a searchable popup of installed applications, with compatible apps first
@@ -61,12 +61,13 @@ image and document previews, and an optional desktop file-picker integration.
 - GLib/GIO development libraries (`glib2` on Arch, `libglib2.0-dev` on Debian/Ubuntu)
   for installed application discovery and launching
 - `gio` (GLib utilities) for desktop trash support
-- Optional: Poppler (`poppler` on Arch, `poppler-utils` on Debian/Ubuntu) for PDF
-  and formatted document previews
-- Optional: LibreOffice (native or Flatpak) for formatted Word/Office previews;
-  DOCX text previews also work without it
-- Optional: `ffmpegthumbnailer` or another freedesktop thumbnailer for video and
-  document previews
+- FFmpeg, Poppler (`poppler` on Arch, `poppler-utils` on Debian/Ubuntu), and
+  librsvg (`librsvg` on Arch, `librsvg2-bin` on Debian/Ubuntu) for video, PDF,
+  and SVG thumbnails
+- LibreOffice (`libreoffice` or `soffice`) for Office document thumbnails and
+  formatted Word/Office previews; DOCX text previews also work without it
+- Optional: registered freedesktop thumbnailers for additional document and
+  media formats
 
 ## Build and run
 

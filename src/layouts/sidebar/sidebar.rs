@@ -88,7 +88,7 @@ pub fn sidebar(current_dir: &Path, cx: &mut Context<MainWindow>) -> impl IntoEle
                         crate::context_menu::actions::copy_paths_to(paths.paths().to_vec(), drop_destination.clone(), state, window, cx);
                     }))
                     .child(div().w(px(20.0)).text_color(if selected {foreground} else {palette.muted_foreground})
-                        .child(Icon::new(IconName::Folder).size(px(18.0))))
+                        .child(crate::components::folder_icon::view_for_folder(PathBuf::new(), &bookmark.path, 18., cx)))
                     .child(div().text_ellipsis().child(bookmark.name)))
                 .child(div().id(format!("remove-{}", bookmark.path.display())).w(px(36.)).h_full()
                     .flex_shrink_0().flex().items_center().justify_center()

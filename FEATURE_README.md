@@ -62,10 +62,10 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 |---|---|---|
 | Grid view | ✅ | Supported. |
 | List view | ✅ | Supported. |
-| Expandable folders in list view | ❌ | List rows do not provide tree expansion. |
+| Expandable folders in list view | ✅ | Click a folder row's disclosure chevron to show its children inline. Double-click still opens the folder. |
 | Icon zoom controls | ✅ | Adjustable content icon size, including keyboard shortcuts. |
-| File thumbnails | 🟡 | Image/GIF handling and installed freedesktop thumbnailers; availability depends on installed providers and settings. |
-| Custom folder icons | 🟡 | Folder icons are themed by Veyra; assigning arbitrary per-folder icons is not implemented. |
+| File thumbnails | ✅ | Images/GIFs are decoded internally; SVG, video, PDF and Office documents have direct renderers, with registered desktop thumbnailers for additional formats. |
+| Custom folder icons | ✅ | Choose an image in Veyra's file picker or reset the icon from a folder's context menu; choices persist per folder. |
 | File type icons | ✅ | Uses Papirus icons selected from the system MIME database, with generic fallbacks. |
 | File sorting | ✅ | Name, size, modified time, or type. |
 | Reverse sorting | ✅ | Sort direction toggle. |
@@ -140,9 +140,9 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 
 | Feature | Status | Notes |
 |---|---|---|
-| Image thumbnails | ✅ | Built-in image decoding, including GIF handling. |
-| Video thumbnails | 🟡 | Uses an installed freedesktop thumbnailer; depends on a suitable provider. |
-| Document thumbnails | 🟡 | Uses installed thumbnailers where available. |
+| Image thumbnails | ✅ | Built-in raster/GIF decoding and direct SVG rendering. |
+| Video thumbnails | ✅ | Generates a video frame directly with FFmpeg; installed desktop thumbnailers remain a fallback. |
+| Document thumbnails | ✅ | Generates the first PDF page with Poppler and Office document pages with LibreOffice; installed desktop thumbnailers handle additional formats. |
 | Thumbnail caching | ✅ | Veyra cache under the XDG cache directory. |
 | Quick preview with GNOME Sushi | ❌ | Veyra has its own Space-bar preview; it does not integrate GNOME Sushi. |
 | Image preview | ✅ | Veyra Quick Preview, with zoom. |
@@ -161,7 +161,7 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 | Sorting preferences | ✅ | Sort key, direction, and folders-first behavior are supported. |
 | Thumbnail preferences | ✅ | Thumbnail display can be toggled. |
 | Hidden-file visibility | ✅ | Toggle is available and persisted. |
-| Custom folder icons | 🟡 | The app styles folder icons; choosing an arbitrary icon per folder is not supported. |
+| Custom folder icons | ✅ | Choose or reset an image icon per folder from its context menu and Veyra's file picker. |
 | System light/dark theme | 🟡 | Built-in light/dark choices and custom JSON themes; automatic system-theme following is not evident. |
 | Keyboard navigation | ✅ | Selection and navigation support keyboard controls. |
 | Accessibility support | 🟡 | Some controls have labels and keyboard handling; a complete accessibility audit/support layer is not evident. |

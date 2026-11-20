@@ -1,6 +1,8 @@
 //! Asynchronous, cached previews using image-rs and installed desktop thumbnailers.
 mod cache;
 mod appimage;
+mod builtin;
+mod office;
 mod providers;
 mod workers;
 use gpui_kit::*;

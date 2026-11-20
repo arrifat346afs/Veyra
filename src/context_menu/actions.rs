@@ -26,6 +26,8 @@ pub enum Command {
     ExtractZip,
     Copy,
     CopyPath,
+    SetFolderIcon,
+    ResetFolderIcon,
     Cut,
     Rename,
     CreateLink,
@@ -81,6 +83,18 @@ pub fn run(
         Command::Bookmark => {
             for path in selected(state).into_iter().filter(|path| path.is_dir()) {
                 if !bookmark(&path, state, window, cx) { break; }
+            }
+        }
+        Command::SetFolderIcon => {
+            let paths = selected(state);
+            if paths.len() != 1 || !paths[0].is_dir() { return; }
+            super::folder_icon_picker::open(paths[0].clone(), window, cx);
+        }
+        Command::ResetFolderIcon => {
+            if let Some(folder) = selected(state).into_iter().find(|path| path.is_dir()) {
+                if let Err(error) = crate::services::folder_icons::remove(&folder) {
+                    message(state, "Could not reset folder icon", error.to_string(), window, cx);
+                } else { cx.notify(); }
             }
         }
         Command::ToggleStar => {

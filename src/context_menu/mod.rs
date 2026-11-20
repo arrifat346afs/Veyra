@@ -7,3 +7,4 @@ mod view;
 pub use view::{attach, attach_entry};
 
 pub mod application_chooser;
+mod folder_icon_picker;

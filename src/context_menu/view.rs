@@ -180,6 +180,10 @@ fn selection_menu(
     }
     if one_directory {
         menu = menu.item(item("Add to bookmarks", IconName::Bookmark, Command::Bookmark, owner.clone()));
+        menu = menu.item(item("Set custom folder icon…", IconName::Folder, Command::SetFolderIcon, owner.clone()));
+        if crate::services::folder_icons::get(&paths[0]).is_some() {
+            menu = menu.item(item("Reset custom folder icon", IconName::Folder, Command::ResetFolderIcon, owner.clone()));
+        }
     }
     menu = menu.separator()
         .item(item("Toggle Starred", IconName::Star, Command::ToggleStar, owner.clone()))

@@ -5,7 +5,7 @@
 //! method when they represent a directory. Keeping navigation in this window
 //! makes built-in places and user bookmarks behave consistently.
 
-use std::{fs, path::PathBuf};
+use std::{collections::HashMap, fs, path::PathBuf};
 
 use gpui_kit::*;
 use gpui_kit::prelude::FluentBuilder;
@@ -55,6 +55,7 @@ pub struct MainWindow {
     pub(crate) list_view: bool,
     pub(crate) column_view: bool,
     pub(crate) column_paths: Vec<PathBuf>,
+    pub(crate) expanded_folders: HashMap<PathBuf, Vec<PathBuf>>,
     pub(crate) reverse_sort: bool,
     pub(crate) show_sidebar: bool,
     pub(crate) show_hidden: bool,
@@ -158,7 +159,7 @@ impl MainWindow {
                 let theme_watch = crate::settings::theme_watch::start(cx);
                 let directory_watch = super::directory_watch::start(cx);
                 Self { quick_preview:Default::default(), application_chooser:None, portal_settings:Default::default(), picker, _theme_watch:theme_watch, _directory_watch:directory_watch, theme_error:None, batch_rename:None, file_dialog:None, file_operation_busy:false, file_operation_progress:None, undo_history:vec![], redo_history:vec![], cut_clipboard:None, path_bar, thumbnail_generation: 0, selection: Default::default(), settings_sliders, settings_window:None,settings_page:0,settings_search,settings_error,
-                    focus, current_dir: current_dir.clone(), entries, error, search, back_history: vec![], forward_history: vec![], tabs: super::tabs::Tabs::new(current_dir.clone()), list_view: preferences.list_view, column_view: preferences.column_view, column_paths: vec![current_dir], view_menu_open:false, reverse_sort: preferences.reverse_sort, show_sidebar: preferences.show_sidebar, show_hidden: preferences.show_hidden, custom_theme_path, preferences }
+                    focus, current_dir: current_dir.clone(), entries, error, search, back_history: vec![], forward_history: vec![], tabs: super::tabs::Tabs::new(current_dir.clone()), list_view: preferences.list_view, column_view: preferences.column_view, column_paths: vec![current_dir], expanded_folders: HashMap::new(), view_menu_open:false, reverse_sort: preferences.reverse_sort, show_sidebar: preferences.show_sidebar, show_hidden: preferences.show_hidden, custom_theme_path, preferences }
             });
             // Override the component root’s opaque background so pane alpha reaches the compositor.
             cx.new(|cx| gpui_kit::base::Root::new(view,window,cx).bg(rgba(0x00000000)))
@@ -219,6 +220,14 @@ impl MainWindow {
         self.error = error;
         self.selection.cursor = None;
         self.selection.anchor = None;
+        self.expanded_folders.clear();
+        cx.notify();
+    }
+    pub(crate) fn toggle_expanded_folder(&mut self, path: PathBuf, cx: &mut Context<Self>) {
+        if self.expanded_folders.remove(&path).is_none() {
+            let (entries, error) = read_directory(&path);
+            if error.is_none() && !entries.is_empty() { self.expanded_folders.insert(path, entries); }
+        }
         cx.notify();
     }
     /// Switch the active location and reload its visible entries.
@@ -250,6 +259,7 @@ impl MainWindow {
         self.focus.focus(window, cx);
         let (entries, error) = read_directory(&path);
         self.selection = Default::default();
+        self.expanded_folders.clear();
         self.thumbnail_generation = self.thumbnail_generation.wrapping_add(1);
         self.current_dir = path;
         self.tabs.update_location(self.current_dir.clone());
@@ -332,13 +342,17 @@ impl Render for MainWindow {
         let window_width = f32::from(_window.viewport_size().width);
         let toolbar = topbar::topbar(self, cx);
         let path_bar = crate::components::path_bar::view(self, cx);
+        let selection_visible: Vec<_> = if self.list_view && !self.column_view {
+            crate::layouts::content::list_tree::flatten_entries(&visible, &self.expanded_folders, self.show_hidden, &query, &self.preferences)
+                .into_iter().map(|(path, _)| path).collect()
+        } else { visible.clone() };
         self.selection.geometry.borrow_mut().items.clear();
-        if !self.column_view { self.selection.selected.retain(|path| visible.contains(path)); }
-        if self.selection.cursor.as_ref().is_some_and(|path| !visible.contains(path)) {
+        if !self.column_view { self.selection.selected.retain(|path| selection_visible.contains(path)); }
+        if self.selection.cursor.as_ref().is_some_and(|path| !selection_visible.contains(path)) {
             self.selection.cursor = None;
             self.selection.anchor = None;
         }
-        self.selection.visible = visible.clone();
+        self.selection.visible = selection_visible;
         let main_content = content::content(
             &self.current_dir,
             &visible,
@@ -350,6 +364,7 @@ impl Render for MainWindow {
             &query,
             &self.preferences,
             &self.selection,
+            &self.expanded_folders,
             self.thumbnail_generation,
             self.picker.is_some(),
             cx,

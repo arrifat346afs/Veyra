@@ -224,6 +224,9 @@ fn copy(source: &Path, target: &Path) -> io::Result<()> {
             let entry = entry?;
             copy(&entry.path(), &target.join(entry.file_name()))?;
         }
+        if let Err(error) = crate::services::folder_icons::duplicate(source, target) {
+            eprintln!("Could not copy custom folder icon: {error}");
+        }
         Ok(())
     } else if metadata.is_file() {
         let mut input = fs::File::open(source)?;
@@ -276,6 +279,10 @@ pub fn rename(source: &Path, target: &Path) -> io::Result<()> {
         }
         return Ok(());
     }
+    let icon_source = if source.symlink_metadata().is_ok_and(|metadata| metadata.file_type().is_symlink()) {
+        source.to_path_buf()
+    } else { source.canonicalize().unwrap_or_else(|_| source.to_path_buf()) };
+    let icon_target = target.to_path_buf();
     let source = CString::new(source.as_os_str().as_bytes())?;
     let target = CString::new(target.as_os_str().as_bytes())?;
     // Both C strings remain alive for the call; paths are relative to AT_FDCWD.
@@ -289,6 +296,9 @@ pub fn rename(source: &Path, target: &Path) -> io::Result<()> {
         )
     };
     if result == 0 {
+        if let Err(error) = crate::services::folder_icons::relocate(&icon_source, &icon_target) {
+            eprintln!("Could not update custom folder icon location: {error}");
+        }
         Ok(())
     } else {
         Err(io::Error::last_os_error())
@@ -432,8 +442,15 @@ fn move_exact(source: &Path, destination: &Path) -> io::Result<()> {
     match rename(source, destination) {
         Ok(()) => Ok(()),
         Err(error) if error.raw_os_error() == Some(libc::EXDEV) => {
+            let icon_source = if source.symlink_metadata().is_ok_and(|metadata| metadata.file_type().is_symlink()) {
+                source.to_path_buf()
+            } else { source.canonicalize().unwrap_or_else(|_| source.to_path_buf()) };
             copy(source, destination)?;
-            delete(&[source.to_path_buf()])
+            delete(&[source.to_path_buf()])?;
+            if let Err(error) = crate::services::folder_icons::relocate(&icon_source, destination) {
+                eprintln!("Could not update custom folder icon location: {error}");
+            }
+            Ok(())
         }
         Err(error) => Err(error),
     }
