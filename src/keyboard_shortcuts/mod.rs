@@ -4,6 +4,7 @@ mod hidden_files;
 mod settings;
 mod path_location;
 mod file_operations;
+mod search;
 
 use gpui_kit::*;
 use crate::windows::MainWindow;
@@ -16,6 +17,6 @@ pub fn attach(root: Div, focus: &FocusHandle, cx: &mut Context<MainWindow>) -> S
             if crate::picker::handle_key(state,event,window,cx) {return;}
             if file_operations::handle(state,event,window,cx) {return;}
             if navigation::handle(state,event,window,cx) {return;}
-            if !settings::handle(state,event,window,cx) && !path_location::handle(state,event,window,cx) { hidden_files::handle(state,event,window,cx); }
+            if !settings::handle(state,event,window,cx) && !path_location::handle(state,event,window,cx) && !search::handle(state,event,window,cx) { hidden_files::handle(state,event,window,cx); }
         }))
 }

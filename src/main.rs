@@ -31,6 +31,7 @@ mod selection;
 
 mod thumbnails;
 mod properties;
+mod search;
 
 mod components;
 

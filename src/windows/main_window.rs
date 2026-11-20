@@ -54,6 +54,8 @@ pub struct MainWindow {
     pub(crate) redo_history: Vec<crate::context_menu::files::HistoryRecord>,
     pub(crate) cut_clipboard: Option<String>,
     pub(crate) search: Entity<InputState>,
+    pub(crate) search_results: Vec<PathBuf>,
+    pub(crate) search_request: u64,
     pub(crate) back_history: Vec<PathBuf>,
     pub(crate) forward_history: Vec<PathBuf>,
     pub(crate) tabs: super::tabs::Tabs,
@@ -103,8 +105,40 @@ impl MainWindow {
             let view = cx.new(|cx| {
                 let focus = cx.focus_handle();
                 focus.focus(window, cx);
-                let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search in Files"));
+                let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search (type:pdf modified:7d content:word)"));
                 cx.subscribe(&search, |_, _, _: &InputEvent, cx| cx.notify()).detach();
+                cx.subscribe_in(&search, window, |state, _, event: &InputEvent, _, cx| {
+                    if !matches!(event, InputEvent::Change) { return; }
+                    let query = state.search.read(cx).value().to_string();
+                    let root = state.current_dir.clone();
+                    let case_sensitive = state.preferences.case_sensitive;
+                    let show_hidden = state.show_hidden;
+                    state.search_request = state.search_request.wrapping_add(1);
+                    let request = state.search_request;
+                    state.search_results.clear();
+                    if !query.is_empty() {
+                        if root == crate::services::navigation::recent_location()
+                            || root == crate::services::navigation::starred_location()
+                            || crate::context_menu::files::is_trash_location(&root) {
+                            state.search_results = crate::search::filter_entries(&state.entries, &query, case_sensitive, show_hidden);
+                            cx.notify();
+                            return;
+                        }
+                        let executor = cx.background_executor().clone();
+                        cx.spawn(async move |state, cx| {
+                            let results = executor.spawn(async move {
+                                crate::search::files(&root, &query, case_sensitive, show_hidden)
+                            }).await;
+                            let _ = state.update(cx, |state, cx| {
+                                if state.search_request == request {
+                                    state.search_results = results;
+                                    cx.notify();
+                                }
+                            });
+                        }).detach();
+                    }
+                    cx.notify();
+                }).detach();
                 let settings_search = cx.new(|cx| InputState::new(window,cx).placeholder("Search settings"));
                 cx.subscribe(&settings_search, |_,_,_: &InputEvent,cx| cx.notify()).detach();
                 let custom_theme_path = cx.new(|cx| InputState::new(window,cx).placeholder("/path/to/theme.json"));
@@ -164,7 +198,7 @@ impl MainWindow {
                 let theme_watch = crate::settings::theme_watch::start(cx);
                 let directory_watch = super::directory_watch::start(cx);
                 Self { quick_preview:Default::default(), application_chooser:None, portal_settings:Default::default(), picker, _theme_watch:theme_watch, _directory_watch:directory_watch, theme_error:None, batch_rename:None, file_dialog:None, properties_dialog:None, properties_image_details:false, properties_metadata:None, properties_metadata_loading:false, properties_metadata_error:None, file_operation_busy:false, file_operation_progress:None, undo_history:vec![], redo_history:vec![], cut_clipboard:None, path_bar, thumbnail_generation: 0, selection: Default::default(), settings_sliders, settings_window:None,settings_page:0,settings_search,settings_error,
-                    focus, current_dir: current_dir.clone(), entries, error, search, back_history: vec![], forward_history: vec![], tabs: super::tabs::Tabs::new(current_dir.clone()), list_view: preferences.list_view, column_view: preferences.column_view, column_paths: vec![current_dir], expanded_folders: HashMap::new(), view_menu_open:false, reverse_sort: preferences.reverse_sort, show_sidebar: preferences.show_sidebar, show_hidden: preferences.show_hidden, custom_theme_path, preferences }
+                    focus, current_dir: current_dir.clone(), entries, error, search, search_results:vec![], search_request:0, back_history: vec![], forward_history: vec![], tabs: super::tabs::Tabs::new(current_dir.clone()), list_view: preferences.list_view, column_view: preferences.column_view, column_paths: vec![current_dir], expanded_folders: HashMap::new(), view_menu_open:false, reverse_sort: preferences.reverse_sort, show_sidebar: preferences.show_sidebar, show_hidden: preferences.show_hidden, custom_theme_path, preferences }
             });
             // Override the component root’s opaque background so pane alpha reaches the compositor.
             cx.new(|cx| gpui_kit::base::Root::new(view,window,cx).bg(rgba(0x00000000)))
@@ -260,6 +294,9 @@ impl MainWindow {
         // All navigation routes end location editing, including sidebar places,
         // bookmarks, history, and opening a folder in the content pane.
         self.path_bar.cancel();
+        self.search_request = self.search_request.wrapping_add(1);
+        self.search_results.clear();
+        self.search.update(cx, |input,cx| input.set_value("",window,cx));
         if let Some(picker) = &mut self.picker {picker.error=None;}
         self.focus.focus(window, cx);
         let (entries, error) = read_directory(&path);
@@ -324,8 +361,10 @@ impl Render for MainWindow {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.theme().clone();
         let query = self.search.read(cx).value().to_string();
-        let query = if self.preferences.case_sensitive {query} else {query.to_lowercase()};
-        let mut visible: Vec<_> = self.entries.iter().filter(|path| {
+        let name_query = crate::search::filename_query(&query);
+        let query = if self.preferences.case_sensitive {name_query} else {name_query.to_lowercase()};
+        let source = if self.search.read(cx).value().is_empty() {&self.entries} else {&self.search_results};
+        let mut visible: Vec<_> = source.iter().filter(|path| {
             let name = path.file_name().unwrap_or_default().to_string_lossy();
             self.picker.as_ref().is_none_or(|p| p.request.allows(path)) && (self.show_hidden || !name.starts_with('.')) && (if self.preferences.case_sensitive {name.to_string()} else {name.to_lowercase()}).contains(&query)
         }).cloned().collect();

@@ -77,13 +77,15 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 
 | Feature | Status | Notes |
 |---|---|---|
-| Filename search | 🟡 | Live substring filtering of the current directory only. |
-| Recursive folder search | ❌ | Search does not traverse subfolders. |
-| File type filters | 🟡 | Portal file-picker requests can filter by MIME type or glob; the normal browser search has no type-filter controls. |
-| Date filters | ❌ | No date-based search filters. |
-| Indexed content search | ❌ | No index or content search. |
-| Recent file search | ✅ | The filename search filters the Recent view. |
-| Multiple search filters | ❌ | Normal search supports a filename query and case-sensitivity preference only. |
+| Filename search | ✅ | Live, case-configurable substring search; Ctrl+F focuses the search field. |
+| Recursive folder search | ✅ | Entering a query searches the current folder and its descendants. |
+| File type filters | ✅ | Search with `type:pdf` or a category such as `type:image`, `type:audio`, `type:video`, or `type:document`. |
+| Date filters | ✅ | Search with `modified:7d`, `modified:24h`, or `modified:30m` to limit results by modification age. |
+| Indexed content search | 🟡 | `content:word` scans common text files on demand (up to 1 MiB per file); no persistent index is built. |
+| Recent file search | ✅ | A query filters the Recent and Starred lists without treating these virtual locations as directories. |
+| Multiple search filters | ✅ | Combine a filename term and `type:`, `modified:`, and `content:` filters in one query. |
+
+Search operators can be combined, for example `invoice type:pdf modified:30d`. Content search is limited to common text and source formats and reads matching files on demand.
 
 ## 6. File properties
 
