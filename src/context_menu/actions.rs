@@ -336,27 +336,7 @@ pub fn run(
         }
         Command::Properties => {
             let paths = targets(state);
-            let detail = paths
-                .iter()
-                .map(|path| match path.symlink_metadata() {
-                    Ok(m) => format!(
-                        "{}\nType: {}\nSize: {} bytes\nRead only: {}",
-                        path.display(),
-                        if m.file_type().is_symlink() {
-                            "Symbolic link"
-                        } else if m.is_dir() {
-                            "Folder"
-                        } else {
-                            "File"
-                        },
-                        m.len(),
-                        m.permissions().readonly()
-                    ),
-                    Err(e) => format!("{}: {e}", path.display()),
-                })
-                .collect::<Vec<_>>()
-                .join("\n\n");
-            message(state, "Properties", detail, window, cx);
+            if let Some(path) = paths.first() { crate::properties::open(path.clone(), state, window, cx); }
         }
     }
 }

@@ -7,6 +7,8 @@ pub struct Preferences {
     pub list_view: bool, pub column_view: bool, pub show_hidden: bool, pub reverse_sort: bool,
     pub folders_first: bool, pub sort_by: usize, pub icon_size: usize,
     pub density: usize, pub filename_size: usize, pub show_sizes: bool,
+    #[serde(default = "default_metadata_columns")]
+    pub metadata_columns: Vec<String>,
     pub case_sensitive: bool, pub show_sidebar: bool,
     pub light_theme: bool, pub home_start: bool,
     pub last_location: Option<PathBuf>,
@@ -18,9 +20,10 @@ pub struct Preferences {
 impl Default for Preferences {
     fn default() -> Self { Self { show_thumbnails:true, list_view:false, column_view:false, show_hidden:false, reverse_sort:false,
         folders_first:true, sort_by:0, icon_size:112, density:1, filename_size:12,
-        show_sizes:true, case_sensitive:false, show_sidebar:true,
+        show_sizes:true, metadata_columns:default_metadata_columns(), case_sensitive:false, show_sidebar:true,
         light_theme:false, home_start:false, last_location:None, custom_theme_path:String::new(), custom_theme_enabled:false, window_opacity:100, sidebar_opacity:100, corner_radius:8 } }
 }
+fn default_metadata_columns() -> Vec<String> { vec!["size".into(), "modified".into()] }
 fn path() -> PathBuf {
     std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".config"))

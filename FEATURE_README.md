@@ -70,8 +70,8 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 | File sorting | ✅ | Name, size, modified time, or type. |
 | Reverse sorting | ✅ | Sort direction toggle. |
 | Folders-first sorting | ✅ | Preference. |
-| File metadata columns | ❌ | List view does not offer configurable metadata columns. |
-| Selection information | 🟡 | Selection is shown/highlighted; no selected-item details summary. The footer reports visible item count. |
+| File metadata columns | ✅ | Right-click the list header to show or hide Size, Type, Modified, and Permissions columns. Choices are saved. |
+| Selection information | ✅ | The bottom-right footer shows the selected item's name and size, or the selected item count and combined file size. |
 
 ## 5. Search
 
@@ -89,7 +89,7 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 
 | Feature | Status | Notes |
 |---|---|---|
-| File size and type | ✅ | Properties dialog reports type and size in bytes. |
+| File properties | ✅ | Dedicated Properties dialog shows common file details plus embedded title, description, keywords, camera, image, document and media metadata when available through ExifTool. |
 | File location | ✅ | Full path is displayed. |
 | Creation/modification information | ❌ | Timestamps are not displayed. |
 | Folder size | 🟡 | Folder metadata length is shown, not a recursive total of its contents. |

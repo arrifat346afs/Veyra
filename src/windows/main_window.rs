@@ -43,6 +43,11 @@ pub struct MainWindow {
     pub(crate) application_chooser: Option<crate::context_menu::application_chooser::Chooser>,
     pub(crate) batch_rename: Option<crate::batch_rename::BatchRename>,
     pub(crate) file_dialog: Option<crate::context_menu::dialog::Dialog>,
+    pub(crate) properties_dialog: Option<PathBuf>,
+    pub(crate) properties_image_details: bool,
+    pub(crate) properties_metadata: Option<Vec<crate::properties::image_metadata::Section>>,
+    pub(crate) properties_metadata_loading: bool,
+    pub(crate) properties_metadata_error: Option<String>,
     pub(crate) file_operation_busy: bool,
     pub(crate) file_operation_progress: Option<FileOperationProgress>,
     pub(crate) undo_history: Vec<crate::context_menu::files::HistoryRecord>,
@@ -158,7 +163,7 @@ impl MainWindow {
                 let settings_sliders = crate::settings::sliders::create(&preferences,cx);
                 let theme_watch = crate::settings::theme_watch::start(cx);
                 let directory_watch = super::directory_watch::start(cx);
-                Self { quick_preview:Default::default(), application_chooser:None, portal_settings:Default::default(), picker, _theme_watch:theme_watch, _directory_watch:directory_watch, theme_error:None, batch_rename:None, file_dialog:None, file_operation_busy:false, file_operation_progress:None, undo_history:vec![], redo_history:vec![], cut_clipboard:None, path_bar, thumbnail_generation: 0, selection: Default::default(), settings_sliders, settings_window:None,settings_page:0,settings_search,settings_error,
+                Self { quick_preview:Default::default(), application_chooser:None, portal_settings:Default::default(), picker, _theme_watch:theme_watch, _directory_watch:directory_watch, theme_error:None, batch_rename:None, file_dialog:None, properties_dialog:None, properties_image_details:false, properties_metadata:None, properties_metadata_loading:false, properties_metadata_error:None, file_operation_busy:false, file_operation_progress:None, undo_history:vec![], redo_history:vec![], cut_clipboard:None, path_bar, thumbnail_generation: 0, selection: Default::default(), settings_sliders, settings_window:None,settings_page:0,settings_search,settings_error,
                     focus, current_dir: current_dir.clone(), entries, error, search, back_history: vec![], forward_history: vec![], tabs: super::tabs::Tabs::new(current_dir.clone()), list_view: preferences.list_view, column_view: preferences.column_view, column_paths: vec![current_dir], expanded_folders: HashMap::new(), view_menu_open:false, reverse_sort: preferences.reverse_sort, show_sidebar: preferences.show_sidebar, show_hidden: preferences.show_hidden, custom_theme_path, preferences }
             });
             // Override the component root’s opaque background so pane alpha reaches the compositor.
@@ -379,9 +384,11 @@ impl Render for MainWindow {
                     .rounded(palette.radius).overflow_hidden()
                     .child(path_bar).child(main_content)
                     .child(div().id("directory-status").w_full().flex_shrink_0()
-                        .flex().justify_end().px(px(12.)).py(px(6.))
+                        .flex().items_center().justify_between().px(px(12.)).py(px(6.))
                         .text_size(px(12.)).text_color(palette.muted_foreground)
-                        .child(format!("{} items", visible.len())))));
+                        .child(format!("{} items", visible.len()))
+                        .children(crate::layouts::content::selection_status::summary(&self.selection.selected).map(|summary|
+                            div().px(px(10.)).py(px(4.)).rounded(cx.theme().radius).bg(palette.popover).text_color(palette.popover_foreground).child(summary))))));
         let mut body = div().flex().size_full().min_h(px(0.)).min_w(px(0.));
         if self.show_sidebar {
             body = body.child(sidebar::sidebar(&self.current_dir, cx));
@@ -405,6 +412,7 @@ impl Render for MainWindow {
             root = root.child(div().absolute().bottom(px(16.)).right(px(16.)).p(px(12.)).rounded(cx.theme().radius).bg(palette.popover).text_color(palette.popover_foreground).child(status));
         }
         if self.file_dialog.is_some() { root = root.child(crate::context_menu::dialog::view(self,cx)); }
+        if let Some(path) = self.properties_dialog.clone() { root = root.child(crate::properties::view(&path,self,cx)); }
         if self.batch_rename.is_some() { root = root.child(crate::batch_rename::view(self,cx)); }
         if self.application_chooser.is_some() {root=root.child(crate::context_menu::application_chooser::view(self,cx));}
         crate::keyboard_shortcuts::attach(root, &self.focus, cx)

@@ -91,7 +91,8 @@ pub fn content(
                 .when(list_view, |label| label.flex_1().min_w(px(0.)).text_left())
                 .when(!list_view, |label| label.w_full().text_center())
                 .whitespace_normal().text_size(px(preferences.filename_size.clamp(10,24) as f32)).child(name))
-            .when(!is_dir && preferences.show_sizes, |tile| tile.child(div().when(list_view, |size| size.w(px(84.)).text_right())
+            .when(list_view && !preferences.metadata_columns.is_empty(), |tile| tile.child(super::metadata_columns::cells(entry, &preferences.metadata_columns, cx)))
+            .when(!list_view && !is_dir && preferences.show_sizes, |tile| tile.child(div().when(list_view, |size| size.w(px(84.)).text_right())
                 .text_color(palette.muted_foreground).text_size(px(11.0))
                 .child(format_file_size(entry))))
             .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| { if !(event.modifiers().control || event.modifiers().shift) && event.click_count() == 2 {if crate::context_menu::files::is_trash_location(&this.current_dir) {this.selection.selected.clear();this.selection.selected.insert(path.clone());crate::context_menu::actions::run(crate::context_menu::actions::Command::Restore,this,window,cx);} else if is_dir {this.navigate_to(path.clone(), window, cx);} else if this.picker.is_some() {crate::picker::accept(this,window,cx);} else if crate::context_menu::files::is_zip(&path) {this.selection.selected.clear();this.selection.selected.insert(path.clone());crate::context_menu::actions::run(crate::context_menu::actions::Command::Open,this,window,cx);} else {crate::services::navigation::record_recent(&path); cx.open_with_system(&path);}} }))
@@ -105,11 +106,13 @@ pub fn content(
         } else if list_entries.is_empty() {
             div().px(px(20.0)).py(px(16.0)).text_color(palette.muted_foreground).child("This folder is empty.").into_any_element()
         } else {
-            div().id("file-scroll").flex_1().min_h(px(0.)).w_full()
+            div().flex_1().min_h(px(0.)).w_full().flex().flex_col()
+                .when(list_view, |layout| layout.child(super::metadata_columns::header(cx.entity().downgrade(), &preferences.metadata_columns, cx)))
+                .child(div().id("file-scroll").flex_1().min_h(px(0.)).w_full()
                 .overflow_y_scroll().track_scroll(&selection.scroll)
                 .vertical_scrollbar(&selection.scroll).child(
                 div().w_full().flex().flex_wrap().content_start().gap(px(spacing)).p(px(18.0)).children(entry_tiles)
-            ).h_full().into_any_element()
+            ).h_full().into_any_element()).into_any_element()
         }).into_any_element();
     crate::selection::area(body,selection,picker,cx)
 }
@@ -203,7 +206,7 @@ fn columns_content(
 }
 
 /// Resolve an icon from the active Papirus theme, including user-installed overrides.
-fn papirus_icon(path: &Path, is_dir: bool) -> String {
+pub(crate) fn papirus_icon(path: &Path, is_dir: bool) -> String {
     if is_dir {
         let name = path.file_name().and_then(|name| name.to_str()).unwrap_or("").to_lowercase();
         let themed = match name.as_str() {

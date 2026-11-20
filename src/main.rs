@@ -30,6 +30,7 @@ fn main() {
 mod selection;
 
 mod thumbnails;
+mod properties;
 
 mod components;
 

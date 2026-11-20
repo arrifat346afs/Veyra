@@ -37,6 +37,19 @@ pub(super) fn handle(
         }
         return true;
     }
+    if state.properties_dialog.is_some() {
+        if event.keystroke.key == "escape" {
+            state.properties_dialog = None;
+            state.properties_image_details = false;
+            state.properties_metadata = None;
+            state.properties_metadata_error = None;
+            state.properties_metadata_loading = false;
+            state.focus.focus(window, cx);
+            cx.notify();
+            cx.stop_propagation();
+        }
+        return true;
+    }
     if state.path_bar.editing || !state.focus.is_focused(window) {
         return false;
     }
