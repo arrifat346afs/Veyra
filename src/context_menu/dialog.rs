@@ -15,6 +15,8 @@ pub enum Kind {
     Rename(PathBuf),
     RenameBookmark(PathBuf),
     CreateLink(PathBuf),
+    CreateArchive { sources: Vec<PathBuf>, directory: PathBuf, format: crate::services::archives::Format },
+    ExtractArchive { archive: PathBuf },
     Delete(Vec<PathBuf>),
     EmptyTrash,
     Conflicts { sources: Vec<PathBuf>, directory: PathBuf, cut: bool, link: bool },
@@ -39,8 +41,13 @@ pub fn show(
     window: &mut Window,
     cx: &mut Context<MainWindow>,
 ) {
+    let placeholder = match &kind {
+        Kind::CreateArchive { .. } => "Archive name",
+        Kind::ExtractArchive { .. } => "New destination folder path",
+        _ => "Name",
+    };
     let input = name.map(|name| {
-        let input = cx.new(|cx| InputState::new(window, cx).placeholder("Name"));
+        let input = cx.new(|cx| InputState::new(window, cx).placeholder(placeholder));
         input.update(cx, |input, cx| {
             input.set_value(name, window, cx);
             input.focus(window, cx);
@@ -123,6 +130,50 @@ pub fn submit(state: &mut MainWindow, window: &mut Window, cx: &mut Context<Main
         close(state, window, cx);
         return;
     }
+    if let Kind::ExtractArchive { archive } = &kind {
+        let typed = PathBuf::from(name.trim());
+        let destination = if typed.is_absolute() { typed } else { archive.parent().unwrap_or_else(|| std::path::Path::new(".")).join(typed) };
+        let parent = destination.parent().filter(|parent| !parent.as_os_str().is_empty()).unwrap_or_else(|| std::path::Path::new("."));
+        if destination.as_os_str().is_empty() || destination.symlink_metadata().is_ok() || !parent.is_dir() {
+            state.file_dialog.as_mut().unwrap().error = Some("Choose a new folder path whose parent already exists.".into());
+            cx.notify();
+            return;
+        }
+        let archive = archive.clone();
+        super::actions::perform_progress_recorded(state, window, cx, move |progress| {
+            progress(0, 1, &archive);
+            crate::services::archives::extract(&archive, &destination).map(|()| {
+                progress(1, 1, &destination);
+                Some(super::files::HistoryRecord {
+                    undo: super::files::HistoryAction::Remove(vec![destination.clone()]),
+                    redo: super::files::HistoryAction::Extract { archive, destination },
+                })
+            })
+        });
+        return;
+    }
+    if let Kind::CreateArchive { sources, directory, format } = &kind {
+        let filename = crate::services::archives::with_extension(name.trim(), *format);
+        if let Err(error) = super::files::validate_name(&filename) {
+            state.file_dialog.as_mut().unwrap().error = Some(error);
+            cx.notify();
+            return;
+        }
+        let destination = directory.join(filename);
+        let sources = sources.clone();
+        let format = *format;
+        super::actions::perform_progress_recorded(state, window, cx, move |progress| {
+            progress(0, 1, &destination);
+            crate::services::archives::create(&sources, &destination, format).map(|()| {
+                progress(1, 1, &destination);
+                Some(super::files::HistoryRecord {
+                    undo: super::files::HistoryAction::Remove(vec![destination.clone()]),
+                    redo: super::files::HistoryAction::CreateArchive { sources, destination, format },
+                })
+            })
+        });
+        return;
+    }
     if matches!(kind, Kind::Create { .. } | Kind::Rename(_) | Kind::CreateLink(_)) {
         if let Err(error) = super::files::validate_name(&name) {
             state.file_dialog.as_mut().unwrap().error = Some(error);
@@ -197,6 +248,7 @@ pub fn submit(state: &mut MainWindow, window: &mut Window, cx: &mut Context<Main
                 progress(1, 1, &destination);
                 result
             }
+            Kind::CreateArchive { .. } | Kind::ExtractArchive { .. } => Ok(None),
             Kind::Delete(paths) => super::files::delete_with_progress(&paths, progress).map(|()| None),
             Kind::EmptyTrash => super::files::empty_trash_with_progress(progress).map(|()| None),
             Kind::Conflicts { .. } => Ok(None),
@@ -231,6 +283,8 @@ pub fn view(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
         Kind::Create { .. } => "Create file",
         Kind::Rename(_) | Kind::RenameBookmark(_) => "Rename",
         Kind::CreateLink(_) => "Create link",
+        Kind::CreateArchive { .. } => "Create Archive",
+        Kind::ExtractArchive { .. } => "Extract",
         Kind::Delete(_) => "Delete permanently",
         Kind::EmptyTrash => "Empty Trash",
         Kind::Conflicts { .. } => "Replace",

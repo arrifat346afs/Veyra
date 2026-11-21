@@ -84,7 +84,7 @@ fn attach_to(
                     .item(item("Restore", IconName::RefreshCw, Command::Restore, owner.clone()))
                     .item(item("Delete permanently…", IconName::Trash, Command::Trash, owner.clone()));
             } else {
-                menu = selection_menu(menu, &paths, owner.clone());
+                menu = selection_menu(menu, &paths, owner.clone(), window, cx);
             }
             return menu.separator().item(item("Properties", IconName::Info, Command::Properties, owner.clone()));
         }
@@ -160,10 +160,12 @@ fn selection_menu(
     mut menu: gpui_kit::component::menu::PopupMenu,
     paths: &[std::path::PathBuf],
     owner: WeakEntity<MainWindow>,
+    window: &mut Window,
+    cx: &mut Context<gpui_kit::component::menu::PopupMenu>,
 ) -> gpui_kit::component::menu::PopupMenu {
     let single = paths.len() == 1;
     let one_directory = single && paths[0].is_dir();
-    let one_archive = single && super::files::is_zip(&paths[0]);
+    let one_archive = single && crate::services::archives::is_archive(&paths[0]);
     let files_only = paths.iter().all(|path| path.is_file());
 
     if files_only {
@@ -176,8 +178,15 @@ fn selection_menu(
         menu = menu.item(item("Quick preview", IconName::Eye, Command::Preview, owner.clone()));
     }
     if one_archive {
-        menu = menu.item(item("Extract to folder", IconName::Archive, Command::ExtractZip, owner.clone()));
+        menu = menu.item(item("Extract to…", IconName::Archive, Command::ExtractArchive, owner.clone()));
     }
+    let zip_owner = owner.clone();
+    let tar_owner = owner.clone();
+    menu = menu.submenu_with_icon(Some(icon(IconName::Archive)), "Compress…", window, cx, move |menu, _, _| {
+        menu.min_w(px(252.))
+            .item(item("ZIP archive…", IconName::Archive, Command::CompressZip, zip_owner.clone()))
+            .item(item("TAR archive…", IconName::Archive, Command::CompressTar, tar_owner.clone()))
+    });
     if one_directory {
         menu = menu.item(item("Add to bookmarks", IconName::Bookmark, Command::Bookmark, owner.clone()));
         menu = menu.item(item("Set custom folder icon…", IconName::Folder, Command::SetFolderIcon, owner.clone()));

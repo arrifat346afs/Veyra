@@ -23,7 +23,9 @@ pub enum Command {
     ChooseApplication,
     Preview,
     Properties,
-    ExtractZip,
+    ExtractArchive,
+    CompressZip,
+    CompressTar,
     Copy,
     CopyPath,
     SetFolderIcon,
@@ -227,21 +229,24 @@ pub fn run(
         Command::EmptyTrash => {
             dialog::show(state, Kind::EmptyTrash, "Empty Trash?", "All items in Trash will be permanently deleted.", None, window, cx);
         }
-        Command::ExtractZip => {
+        Command::ExtractArchive => {
             let paths = selected(state);
-            if paths.len() != 1 || !super::files::is_zip(&paths[0]) { return; }
-            let archive = paths[0].clone();
-            let destination = super::files::zip_destination(&archive);
-            perform_progress_recorded(state, window, cx, move |progress| {
-                progress(0, 1, &archive);
-                super::files::extract_zip_to_folder(&archive, &destination).map(|()| {
-                    progress(1, 1, &archive);
-                    Some(files::HistoryRecord {
-                        undo: files::HistoryAction::Remove(vec![destination.clone()]),
-                        redo: files::HistoryAction::Extract { archive, destination },
-                    })
-                })
-            });
+            if paths.len() == 1 && crate::services::archives::is_archive(&paths[0]) {
+                extract_archive_dialog(state, paths[0].clone(), window, cx);
+            }
+        }
+        Command::CompressZip | Command::CompressTar => {
+            let sources = selected(state);
+            if sources.is_empty() { return; }
+            let format = if matches!(command, Command::CompressZip) { crate::services::archives::Format::Zip } else { crate::services::archives::Format::Tar };
+            let directory = match crate::services::archives::destination_directory(&sources) {
+                Ok(path) => path,
+                Err(error) => { message(state, "Could not create archive", error, window, cx); return; }
+            };
+            let name = crate::services::archives::default_name(&sources, format);
+            dialog::show(state, Kind::CreateArchive { sources, directory: directory.clone(), format },
+                if matches!(format, crate::services::archives::Format::Zip) {"Create ZIP archive"} else {"Create TAR archive"},
+                format!("Create in {}", directory.display()), Some(name), window, cx);
         }
         Command::Delete => {
             let paths = selected(state);
@@ -297,12 +302,8 @@ pub fn run(
             let paths = targets(state);
             if paths.len() == 1 && paths[0].is_dir() {
                 state.navigate_to(paths[0].clone(), window, cx);
-            } else if paths.len() == 1 && super::files::is_zip(&paths[0]) {
-                let archive = paths[0].clone();
-                let destination = super::files::zip_destination(&archive);
-                perform_and_navigate(state, window, cx, destination.clone(), archive.clone(), move || {
-                    super::files::extract_zip_to_folder(&archive, &destination)
-                });
+            } else if paths.len() == 1 && crate::services::archives::is_archive(&paths[0]) {
+                extract_archive_dialog(state, paths[0].clone(), window, cx);
             } else {
                 for path in paths {
                     crate::services::navigation::record_recent(&path);
@@ -382,6 +383,14 @@ pub fn message(
 ) {
     dialog::show(state, Kind::Message, title, detail, None, window, cx);
 }
+
+fn extract_archive_dialog(state: &mut MainWindow, archive: PathBuf, window: &mut Window, cx: &mut Context<MainWindow>) {
+    let destination = crate::services::archives::default_destination(&archive);
+    dialog::show(state, Kind::ExtractArchive { archive }, "Extract Archive",
+        "Choose a new destination folder path. Existing folders are never overwritten.",
+        Some(destination.display().to_string()), window, cx);
+}
+
 pub fn perform_progress_recorded(
     state: &mut MainWindow,
     window: &mut Window,
@@ -595,38 +604,6 @@ fn transfer_paths_to(
             Ok(Some(files::HistoryRecord { undo: files::HistoryAction::Sequence(undo), redo: files::HistoryAction::Sequence(redo) }))
         }
     });
-}
-
-fn perform_and_navigate(
-    state: &mut MainWindow,
-    window: &mut Window,
-    cx: &mut Context<MainWindow>,
-    destination: PathBuf,
-    archive: PathBuf,
-    job: impl FnOnce() -> Result<(), String> + Send + 'static,
-) {
-    state.file_operation_busy = true;
-    state.file_operation_progress = None;
-    cx.notify();
-    let executor = cx.background_executor().clone();
-    cx.spawn_in(window, async move |state, cx| {
-        let result = executor.spawn(async move { job() }).await;
-        let _ = state.update_in(cx, |state, window, cx| {
-            state.file_operation_busy = false;
-            state.file_operation_progress = None;
-            match result {
-                Ok(()) => {
-                    state.undo_history.push(files::HistoryRecord {
-                        undo: files::HistoryAction::Remove(vec![destination.clone()]),
-                        redo: files::HistoryAction::Extract { archive, destination: destination.clone() },
-                    });
-                    state.redo_history.clear();
-                    state.navigate_to(destination, window, cx)
-                }
-                Err(error) => message(state, "Could not open ZIP archive", error, window, cx),
-            }
-        });
-    }).detach();
 }
 
 /// Shared by the folder menu and sidebar drop target. Saving a shortcut never

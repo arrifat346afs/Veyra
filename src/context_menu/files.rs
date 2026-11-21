@@ -373,6 +373,7 @@ pub enum HistoryAction {
     Copy(Vec<(PathBuf, PathBuf)>),
     Link(Vec<(PathBuf, PathBuf)>),
     Create { path: PathBuf, folder: bool },
+    CreateArchive { sources: Vec<PathBuf>, destination: PathBuf, format: crate::services::archives::Format },
     Extract { archive: PathBuf, destination: PathBuf },
     Trash(Vec<PathBuf>),
     Restore(Vec<PathBuf>),
@@ -416,7 +417,9 @@ pub fn apply_history_action(action: &HistoryAction) -> io::Result<()> {
             Ok(())
         }
         HistoryAction::Create { path, folder } => create(path, *folder),
-        HistoryAction::Extract { archive, destination } => extract_zip_to_folder(archive, destination)
+        HistoryAction::CreateArchive { sources, destination, format } => crate::services::archives::create(sources, destination, *format)
+            .map_err(io::Error::other),
+        HistoryAction::Extract { archive, destination } => crate::services::archives::extract(archive, destination)
             .map_err(io::Error::other),
         HistoryAction::Trash(paths) => trash(paths),
         HistoryAction::Restore(paths) => restore_originals(paths),
@@ -687,30 +690,4 @@ mod tests {
         delete(&[source, destination.join("link")]).unwrap();
         assert_eq!(fs::read_to_string(target.join("keep.txt")).unwrap(), "keep");
     }
-}
-pub fn is_zip(path: &Path) -> bool {
-    path.is_file() && path.extension().and_then(|extension| extension.to_str())
-        .is_some_and(|extension| extension.eq_ignore_ascii_case("zip"))
-}
-
-/// Extract an archive into a new sibling directory. Refuse to overwrite an
-/// existing destination, and remove a partial result if extraction fails.
-pub fn extract_zip_to_folder(archive_path: &Path, destination: &Path) -> Result<(), String> {
-    if !is_zip(archive_path) { return Err("This file is not a ZIP archive.".into()); }
-    if destination.exists() { return Err(format!("{} already exists.", destination.display())); }
-    std::fs::create_dir(destination).map_err(|error| format!("Could not create {}: {error}", destination.display()))?;
-    let result = fs::File::open(archive_path)
-        .map_err(|error| format!("Could not open {}: {error}", archive_path.display()))
-        .and_then(|file| zip::ZipArchive::new(file).map_err(|error| format!("Invalid ZIP archive: {error}")))
-        .and_then(|mut archive| archive.extract(destination).map_err(|error| format!("Could not extract ZIP archive: {error}")));
-    if let Err(error) = result {
-        let _ = std::fs::remove_dir_all(destination);
-        return Err(error);
-    }
-    Ok(())
-}
-
-pub fn zip_destination(path: &Path) -> PathBuf {
-    let name = path.file_stem().unwrap_or_default();
-    path.parent().unwrap_or_else(|| Path::new(".")).join(name)
 }

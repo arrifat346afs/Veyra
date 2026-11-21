@@ -16,7 +16,7 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 | Delete and restore files | ✅ | Move items to desktop Trash, restore them to their original locations, or permanently delete them. |
 | Trash management | ✅ | Browse Trash, restore selected items, permanently delete selected items, or empty Trash. |
 | Permanent deletion | ✅ | Confirmation before deletion. |
-| Undo and redo | ✅ | Ctrl+Z / Ctrl+Y or Ctrl+Shift+Z and toolbar buttons reverse/replay create, rename, batch rename, links, copy/paste, moves, trash/restore, conflict replacements, and ZIP extraction. Permanent deletion and emptying Trash remain irreversible. 
+| Undo and redo | ✅ | Ctrl+Z / Ctrl+Y or Ctrl+Shift+Z and toolbar buttons reverse/replay create, rename, batch rename, links, copy/paste, moves, trash/restore, conflict replacements, archive creation and extraction. Permanent deletion and emptying Trash remain irreversible. |
 | Create symbolic links | ✅ | Paste as link and a selected-item link wizard with a custom destination name. |
 | Drag and drop | ✅ | Internal moves, native file-URI drops into the pane/folders/sidebar places, outbound single- or multi-selection file drags, and folder bookmarking are supported. External drops copy; internal drags move. |
 | File operation progress | ✅ | Long-running operations report completed/total items and the current item name, including copy, move, trash, restore, delete, batch rename, and empty Trash. |
@@ -38,7 +38,7 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 | Recent files | ✅ | Sidebar view records up to 100 files opened directly or with an application and keeps the list across launches. Missing files are omitted. |
 | Starred files | ✅ | Toggle Starred from an item’s context menu; the sidebar view persists starred files and folders across launches. |
 | Hidden files | ✅ | Toggle dotfiles with Ctrl+H or the context menu; preference is stored. |
-| Context menus | ✅ | Actions follow the target: archive extraction appears for a single ZIP, folder actions for a single folder, and batch actions for multiple selected items. File and folder menus include Copy for file transfer and Copy Path for copying the filesystem path as text. Empty-space and Trash menus provide directory-level actions. |
+| Context menus | ✅ | Actions follow the target: archive extraction appears for a supported archive, folder actions for a single folder, and batch actions for multiple selected items. File and folder menus include Copy for file transfer and Copy Path for copying the filesystem path as text. Empty-space and Trash menus provide directory-level actions. |
 
 ## 3. Sidebar and bookmarks
 
@@ -105,12 +105,12 @@ Search operators can be combined, for example `invoice type:pdf modified:30d`. C
 
 | Feature | Status | Notes |
 |---|---|---|
-| Compress files and folders | ❌ | No archive-creation command. |
-| Create ZIP archives | ❌ | No ZIP creation. |
-| Create TAR archives | ❌ | No TAR creation. |
-| Extract archives | 🟡 | ZIP extraction only, to a new sibling folder. Opening a ZIP also extracts there. |
-| Select extraction destination | ❌ | Destination is automatically derived from the archive name. |
-| Additional archive formats through backends | ❌ | No general archive backend integration; other archive types are not extracted by Veyra. |
+| Compress files and folders | ✅ | Select files or folders, then choose Compress… from the context menu. |
+| Create ZIP archives | ✅ | Creates recursive ZIP archives with file and folder structure preserved. |
+| Create TAR archives | ✅ | Creates uncompressed TAR archives with file and folder structure preserved. |
+| Extract archives | ✅ | Extracts ZIP and TAR variants directly; common additional formats use installed 7z or bsdtar backends. |
+| Select extraction destination | ✅ | Extract to… and opening an archive prompt for a new destination-folder path; existing folders are never overwritten. |
+| Additional archive formats through backends | ✅ | Supports common 7z, RAR, CAB, ISO, CPIO, AR, DEB, RPM, JAR, and compressed formats when installed 7z or bsdtar supports them. |
 
 ## 8. Network
 
