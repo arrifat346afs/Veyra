@@ -98,6 +98,14 @@ pub fn launch(id: &str, paths: &[PathBuf]) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
+pub fn set_default_for(path: &Path, id: &str) -> Result<(), String> {
+    let content_type = gio::File::for_path(path).query_info("standard::content-type", gio::FileQueryInfoFlags::NONE, None::<&gio::Cancellable>)
+        .map_err(|error| error.to_string())?.content_type().map(|value| value.to_string())
+        .ok_or_else(|| "Could not determine this file’s type.".to_owned())?;
+    let app = gio::DesktopAppInfo::new(id).ok_or("This application is no longer installed.")?;
+    app.set_as_default_for_type(&content_type).map_err(|error| error.to_string())
+}
+
 fn find_icon(names: &[gio::glib::GString]) -> Option<PathBuf> {
     let mut roots = Vec::new();
     if let Some(home) = std::env::var_os("HOME") {

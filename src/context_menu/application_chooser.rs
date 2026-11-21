@@ -23,6 +23,7 @@ pub struct Chooser {
     selected: Option<String>,
     loading: bool,
     launching: bool,
+    default_path: Option<PathBuf>,
     error: Option<String>,
 }
 impl Chooser {
@@ -38,6 +39,20 @@ impl Chooser {
 pub fn open(
     state: &mut MainWindow,
     paths: Vec<PathBuf>,
+    window: &mut Window,
+    cx: &mut Context<MainWindow>,
+) {
+    open_mode(state, paths, None, window, cx);
+}
+
+pub fn open_default(state: &mut MainWindow, path: PathBuf, window: &mut Window, cx: &mut Context<MainWindow>) {
+    open_mode(state, vec![path.clone()], Some(path), window, cx);
+}
+
+fn open_mode(
+    state: &mut MainWindow,
+    paths: Vec<PathBuf>,
+    default_path: Option<PathBuf>,
     window: &mut Window,
     cx: &mut Context<MainWindow>,
 ) {
@@ -60,6 +75,7 @@ pub fn open(
         selected: None,
         loading: true,
         launching: false,
+        default_path,
         error: None,
     });
     cx.defer_in(window, |state, window, cx| {
@@ -120,12 +136,17 @@ fn launch(state: &mut MainWindow, window: &mut Window, cx: &mut Context<MainWind
     chooser.launching = true;
     chooser.error = None;
     let paths = chooser.paths.clone();
+    let default_path = chooser.default_path.clone();
+    let setting_default = default_path.is_some();
     let recent_paths = paths.clone();
     let search = chooser.search.clone();
     let executor = cx.background_executor().clone();
     cx.spawn_in(window, async move |state, cx| {
         let result = executor
-            .spawn(async move { applications::launch(&id, &paths) })
+            .spawn(async move {
+                if let Some(path) = default_path { applications::set_default_for(&path, &id) }
+                else { applications::launch(&id, &paths) }
+            })
             .await;
         let _ = state.update_in(cx, |state, window, cx| {
             let Some(chooser) = &mut state.application_chooser else {
@@ -137,8 +158,10 @@ fn launch(state: &mut MainWindow, window: &mut Window, cx: &mut Context<MainWind
             chooser.launching = false;
             match result {
                 Ok(()) => {
-                    for path in &recent_paths {
-                        crate::services::navigation::record_recent(path);
+                    if !setting_default {
+                        for path in &recent_paths {
+                            crate::services::navigation::record_recent(path);
+                        }
                     }
                     close(state, window, cx)
                 }
@@ -320,7 +343,7 @@ pub fn view(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
                 .bg(palette.popover)
                 .text_color(palette.popover_foreground)
                 .shadow_lg()
-                .child(div().text_size(px(20.)).child("Open with"))
+                .child(div().text_size(px(20.)).child(if chooser.default_path.is_some() {"Set default application"} else {"Open with"}))
                 .child(
                     div()
                         .text_size(px(12.))
@@ -357,6 +380,8 @@ pub fn view(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
                             Button::new("open-with-application")
                                 .label(if chooser.launching {
                                     "Opening…"
+                                } else if chooser.default_path.is_some() {
+                                    "Set as Default"
                                 } else {
                                     "Open"
                                 })

@@ -48,6 +48,9 @@ pub struct MainWindow {
     pub(crate) properties_metadata: Option<Vec<crate::properties::image_metadata::Section>>,
     pub(crate) properties_metadata_loading: bool,
     pub(crate) properties_metadata_error: Option<String>,
+    pub(crate) properties_folder_size: Option<u64>,
+    pub(crate) properties_filesystem: Option<(String, String)>,
+    pub(crate) properties_error: Option<String>,
     pub(crate) file_operation_busy: bool,
     pub(crate) file_operation_progress: Option<FileOperationProgress>,
     pub(crate) undo_history: Vec<crate::context_menu::files::HistoryRecord>,
@@ -197,7 +200,7 @@ impl MainWindow {
                 let settings_sliders = crate::settings::sliders::create(&preferences,cx);
                 let theme_watch = crate::settings::theme_watch::start(cx);
                 let directory_watch = super::directory_watch::start(cx);
-                Self { quick_preview:Default::default(), application_chooser:None, portal_settings:Default::default(), picker, _theme_watch:theme_watch, _directory_watch:directory_watch, theme_error:None, batch_rename:None, file_dialog:None, properties_dialog:None, properties_image_details:false, properties_metadata:None, properties_metadata_loading:false, properties_metadata_error:None, file_operation_busy:false, file_operation_progress:None, undo_history:vec![], redo_history:vec![], cut_clipboard:None, path_bar, thumbnail_generation: 0, selection: Default::default(), settings_sliders, settings_window:None,settings_page:0,settings_search,settings_error,
+                Self { quick_preview:Default::default(), application_chooser:None, portal_settings:Default::default(), picker, _theme_watch:theme_watch, _directory_watch:directory_watch, theme_error:None, batch_rename:None, file_dialog:None, properties_dialog:None, properties_image_details:false, properties_metadata:None, properties_metadata_loading:false, properties_metadata_error:None, properties_folder_size:None, properties_filesystem:None, properties_error:None, file_operation_busy:false, file_operation_progress:None, undo_history:vec![], redo_history:vec![], cut_clipboard:None, path_bar, thumbnail_generation: 0, selection: Default::default(), settings_sliders, settings_window:None,settings_page:0,settings_search,settings_error,
                     focus, current_dir: current_dir.clone(), entries, error, search, search_results:vec![], search_request:0, back_history: vec![], forward_history: vec![], tabs: super::tabs::Tabs::new(current_dir.clone()), list_view: preferences.list_view, column_view: preferences.column_view, column_paths: vec![current_dir], expanded_folders: HashMap::new(), view_menu_open:false, reverse_sort: preferences.reverse_sort, show_sidebar: preferences.show_sidebar, show_hidden: preferences.show_hidden, custom_theme_path, preferences }
             });
             // Override the component root’s opaque background so pane alpha reaches the compositor.

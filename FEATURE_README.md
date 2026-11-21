@@ -16,7 +16,7 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 | Delete and restore files | ✅ | Move items to desktop Trash, restore them to their original locations, or permanently delete them. |
 | Trash management | ✅ | Browse Trash, restore selected items, permanently delete selected items, or empty Trash. |
 | Permanent deletion | ✅ | Confirmation before deletion. |
-| Undo and redo | ✅ | Ctrl+Z / Ctrl+Y or Ctrl+Shift+Z and toolbar buttons reverse/replay create, rename, batch rename, links, copy/paste, moves, trash/restore, conflict replacements, and ZIP extraction. Permanent deletion and emptying Trash remain irreversible. |
+| Undo and redo | ✅ | Ctrl+Z / Ctrl+Y or Ctrl+Shift+Z and toolbar buttons reverse/replay create, rename, batch rename, links, copy/paste, moves, trash/restore, conflict replacements, and ZIP extraction. Permanent deletion and emptying Trash remain irreversible. 
 | Create symbolic links | ✅ | Paste as link and a selected-item link wizard with a custom destination name. |
 | Drag and drop | ✅ | Internal moves, native file-URI drops into the pane/folders/sidebar places, outbound single- or multi-selection file drags, and folder bookmarking are supported. External drops copy; internal drags move. |
 | File operation progress | ✅ | Long-running operations report completed/total items and the current item name, including copy, move, trash, restore, delete, batch rename, and empty Trash. |
@@ -91,15 +91,15 @@ Search operators can be combined, for example `invoice type:pdf modified:30d`. C
 
 | Feature | Status | Notes |
 |---|---|---|
-| File properties | ✅ | Dedicated Properties dialog shows common file details plus embedded title, description, keywords, camera, image, document and media metadata when available through ExifTool. |
+| File properties | ✅ | Properties dialog shows common filesystem details and embedded title, description, keywords, camera, image, document and media metadata when available through ExifTool. |
 | File location | ✅ | Full path is displayed. |
-| Creation/modification information | 🟡 | Modified and created timestamps are displayed in Properties; creation time shows “Unavailable” when the filesystem does not provide it. |
-| Folder size | 🟡 | Folder metadata length is shown, not a recursive total of its contents. |
-| Owner and group | ❌ | Not displayed. |
-| File permissions | 🟡 | Only a read-only yes/no value; no permission editor or detailed mode bits. |
-| Executable permission | ❌ | No executable-bit control. |
-| Default application selection | 🟡 | Files can be opened with their system default or a chooser for installed applications; no association-setting control is evident. |
-| Filesystem information | ❌ | No filesystem/device properties panel. |
+| Creation/modification information | ✅ | Modified and created timestamps are displayed; unsupported creation time is shown as unavailable. |
+| Folder size | ✅ | Directory contents are scanned in the background and file sizes are summed recursively. |
+| Owner and group | ✅ | User and group names are shown, with numeric IDs when names cannot be resolved. |
+| File permissions | ✅ | Unix mode bits are displayed and owner, group and other read/write/execute bits can be toggled. |
+| Executable permission | ✅ | Executability is displayed and controlled through the execute permission toggles. |
+| Default application selection | ✅ | Set Default Application opens the installed-app chooser and updates the system MIME association. |
+| Filesystem information | ✅ | Filesystem type, total capacity and free space are shown when provided by the mounted filesystem. |
 
 ## 7. Archives
 

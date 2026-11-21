@@ -43,6 +43,9 @@ pub(super) fn handle(
             state.properties_image_details = false;
             state.properties_metadata = None;
             state.properties_metadata_error = None;
+            state.properties_folder_size = None;
+            state.properties_filesystem = None;
+            state.properties_error = None;
             state.properties_metadata_loading = false;
             state.focus.focus(window, cx);
             cx.notify();
