@@ -24,7 +24,7 @@ pub fn open(path: std::path::PathBuf, state: &mut MainWindow, window: &mut Windo
         let result = executor.spawn(async move {
             let embedded = image_metadata::read(&metadata_path);
             let size = fs::symlink_metadata(&metadata_path).ok().filter(|meta| meta.is_dir()).map(|_| system::folder_size(&metadata_path));
-            let filesystem = system::filesystem_space(&metadata_path);
+            let filesystem = system::filesystem_stats(&metadata_path);
             (embedded, size, filesystem)
         }).await;
         let _ = state.update(cx, |state, cx| {
@@ -107,9 +107,8 @@ pub fn view(path: &Path, state: &MainWindow, cx: &mut Context<MainWindow>) -> An
             .child(info_row("Permissions", if is_symlink {"Not applicable".into()} else {format!("{:04o}", mode)}, cx))
             .when(!is_symlink, |rows| rows.child(permission_controls(path, mode, cx)))
             .when(meta.is_file(), |rows| rows.child(info_row("Executable", if mode & 0o111 != 0 {"Yes"} else {"No"}.into(), cx))));
-    let filesystem = state.properties_filesystem.as_ref().map(|(kind, _)| kind.clone()).unwrap_or_else(|| if state.properties_metadata_loading {"Checking…".into()} else {"Unavailable".into()});
-    let space = state.properties_filesystem.as_ref().map(|(_, space)| space.clone()).unwrap_or_else(|| if state.properties_metadata_loading {"Checking…".into()} else {"Unavailable".into()});
-    details = details.child(info_row("Filesystem", filesystem, cx)).child(info_row("Space", space, cx));
+    let filesystem = state.properties_filesystem.as_ref().map(|(kind, _, _)| kind.clone()).unwrap_or_else(|| if state.properties_metadata_loading {"Checking…".into()} else {"Unavailable".into()});
+    details = details.child(info_row("Filesystem", filesystem, cx));
     if image_dimensions.is_some() || state.properties_metadata.as_ref().is_some_and(|sections| !sections.is_empty()) || state.properties_metadata_error.is_some() {
         details = details.child(div().w_full().p(px(6.)).rounded(cx.theme().radius).bg(palette.muted.opacity(0.35))
             .child(Button::new("open-image-properties").label(if image_dimensions.is_some() {"Image Properties  →"} else {"File Metadata  →"}).ghost().on_click(cx.listener(|state, _, _, cx| {

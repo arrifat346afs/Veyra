@@ -51,13 +51,12 @@ fn account_name(id: u32, user: bool) -> String {
     id.to_string()
 }
 
-pub fn filesystem_space(path: &Path) -> Option<(String, String)> {
+pub fn filesystem_stats(path: &Path) -> Option<(String, u64, u64)> {
     use gio::prelude::*;
     let info = gio::File::for_path(path).query_filesystem_info("filesystem::type,filesystem::size,filesystem::free", None::<&gio::Cancellable>).ok()?;
     let kind = info.attribute_string("filesystem::type").map(|value| value.to_string()).unwrap_or_else(|| "Unknown".into());
     let total = info.attribute_uint64("filesystem::size");
-    let free = info.attribute_uint64("filesystem::free");
-    Some((kind, format!("{} total, {} free", format_bytes(total), format_bytes(free))))
+    (total > 0).then(|| (kind, total, info.attribute_uint64("filesystem::free")))
 }
 
 pub fn format_bytes(bytes: u64) -> String {

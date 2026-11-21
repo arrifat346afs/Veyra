@@ -50,7 +50,7 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 | Remove bookmarks | ✅ | Remove control appears when hovering over a bookmark row. |
 | Open sidebar locations in a new tab or window | ✅ | Right-click a place or bookmark to open it in a new tab or window. |
 | Rename bookmarks | ✅ | Rename from a bookmark's context menu; custom names persist with the bookmark. |
-| Reorder bookmarks | ✅ | Move a bookmark up or down from its context menu. |
+| Reorder places and bookmarks | ✅ | Drag any sidebar place or bookmark to a new position; order persists across launches. |
 | Mounted drives | ✅ | GIO-mounted locations with local paths appear in the sidebar. |
 | Removable devices | 🟡 | Mounted removable volumes that GIO marks ejectable appear; device eject/unmount controls are not implemented. |
 | Network locations | 🟡 | Connected GIO network mounts with local paths appear; connecting to a server from the sidebar is not implemented. |
@@ -99,7 +99,7 @@ Search operators can be combined, for example `invoice type:pdf modified:30d`. C
 | File permissions | ✅ | Unix mode bits are displayed and owner, group and other read/write/execute bits can be toggled. |
 | Executable permission | ✅ | Executability is displayed and controlled through the execute permission toggles. |
 | Default application selection | ✅ | Set Default Application opens the installed-app chooser and updates the system MIME association. |
-| Filesystem information | ✅ | Filesystem type, total capacity and free space are shown when provided by the mounted filesystem. |
+| Filesystem information | ✅ | Filesystem type appears in Properties; the File system sidebar entry shows a used-space percentage and progress bar. |
 
 ## 7. Archives
 

@@ -41,6 +41,28 @@ pub fn sidebar(current_dir: &Path, cx: &mut Context<MainWindow>) -> impl IntoEle
     // Copy the semantic palette before attaching listeners, so the complete
     // sidebar follows the active theme without embedding color values here.
     let palette = cx.theme().clone();
+    let mut places = vec![
+        ("place:recent".into(), "Recent".into(), location_row("Recent", IconName::Clock3, crate::services::navigation::recent_location(), current_dir, cx).into_any_element()),
+        ("place:starred".into(), "Starred".into(), location_row("Starred", IconName::Star, crate::services::navigation::starred_location(), current_dir, cx).into_any_element()),
+        ("place:home".into(), "Home".into(), location_row("Home", IconName::House, home.clone(), current_dir, cx).into_any_element()),
+        ("place:desktop".into(), "Desktop".into(), location_row("Desktop", IconName::PanelsTopLeft, home.join("Desktop"), current_dir, cx).into_any_element()),
+        ("place:documents".into(), "Documents".into(), location_row("Documents", IconName::Files, home.join("Documents"), current_dir, cx).into_any_element()),
+        ("place:downloads".into(), "Downloads".into(), location_row("Downloads", IconName::Download, home.join("Downloads"), current_dir, cx).into_any_element()),
+        ("place:pictures".into(), "Pictures".into(), location_row("Pictures", IconName::Image, home.join("Pictures"), current_dir, cx).into_any_element()),
+        ("place:music".into(), "Music".into(), location_row("Music", IconName::Music, home.join("Music"), current_dir, cx).into_any_element()),
+        ("place:videos".into(), "Videos".into(), location_row("Videos", IconName::Clapperboard, home.join("Videos"), current_dir, cx).into_any_element()),
+        ("place:file-system".into(), "File system".into(), super::filesystem::row(current_dir, cx).into_any_element()),
+    ];
+    for (label, path) in mounted_locations {
+        places.push((format!("mount:{}", path.display()), label.clone(), location_row_owned(label, path, current_dir, cx).into_any_element()));
+    }
+    places.push(("place:trash".into(), "Trash".into(), location_row("Trash", IconName::Trash, PathBuf::from(crate::context_menu::files::TRASH_URI), current_dir, cx).into_any_element()));
+    for bookmark in saved_bookmarks {
+        let key = format!("bookmark:{}", bookmark.path.display());
+        let label = bookmark.name.clone();
+        places.push((key, label, bookmark_row(bookmark, current_dir, cx).into_any_element()));
+    }
+    let places = super::ordering::rows(places, cx);
 
     div().id("bookmark-drop-target").w(px(WIDTH)).flex_shrink_0().h_full().flex().flex_col().gap(px(4.0))
         .px(px(12.0)).py(px(12.0))
@@ -52,65 +74,45 @@ pub fn sidebar(current_dir: &Path, cx: &mut Context<MainWindow>) -> impl IntoEle
                 crate::context_menu::actions::bookmark(&drag.paths[0], state, window, cx);
             }
         }))
-        .child(div().px(px(14.0)).h(px(38.)).flex().items_center().text_size(px(13.)).text_color(palette.link).child("Places"))
-        .child(location_row("Recent", IconName::Clock3, crate::services::navigation::recent_location(), current_dir, cx))
-        .child(location_row("Starred", IconName::Star, crate::services::navigation::starred_location(), current_dir, cx))
-        .child(location_row("Home", IconName::House, home.clone(), current_dir, cx))
-        .child(location_row("Desktop", IconName::PanelsTopLeft, home.join("Desktop"), current_dir, cx))
-        .child(location_row("Documents", IconName::Files, home.join("Documents"), current_dir, cx))
-        .child(location_row("Downloads", IconName::Download, home.join("Downloads"), current_dir, cx))
-        .child(location_row("Pictures", IconName::Image, home.join("Pictures"), current_dir, cx))
-        .child(location_row("Music", IconName::Music, home.join("Music"), current_dir, cx))
-        .child(location_row("Videos", IconName::Clapperboard, home.join("Videos"), current_dir, cx))
-        .child(location_row("File system", IconName::HardDrive, PathBuf::from("/"), current_dir, cx))
-        .child(mount_rows(mounted_locations, current_dir, cx))
-        .child(location_row("Trash", IconName::Trash, PathBuf::from(crate::context_menu::files::TRASH_URI), current_dir, cx))
-        .when(!saved_bookmarks.is_empty(), |sidebar| sidebar.child(div().h(px(16.))))
-        .children(saved_bookmarks.into_iter().map(|bookmark| {
-            // A bookmark has two independent click targets: its label navigates
-            // and its trailing × removes it from the app-owned store.
-            let target = bookmark.path.clone();
-            let drop_destination = bookmark.path.clone();
-            let remove_target = bookmark.path.clone();
-            let hover_group = format!("bookmark-row-{}", bookmark.path.display());
-            let selected = current_dir == &bookmark.path;
-            let foreground = palette.foreground;
-            div().h(px(42.0)).flex_shrink_0().w_full().flex().items_center().rounded(cx.theme().radius)
-                .group(hover_group.clone())
-                .text_color(foreground)
-                .when(selected, |row| row.bg(palette.primary.opacity(0.22)))
-                .hover(|style| style.bg(if selected {palette.primary.opacity(0.28)} else {palette.primary.opacity(0.14)}))
-                .child(div().id(format!("bookmark-{}", bookmark.path.display())).flex_1().h_full()
-                    .flex().items_center().gap(px(12.0)).px(px(14.0)).cursor_pointer()
-                    .hover(|style| style.text_color(if selected {foreground} else {palette.primary}))
-                    .on_click(cx.listener(move |this, _, window, cx| this.navigate_to(target.clone(), window, cx)))
-                    .on_drop(cx.listener(move |state, paths: &ExternalPaths, window, cx| {
-                        crate::context_menu::actions::copy_paths_to(paths.paths().to_vec(), drop_destination.clone(), state, window, cx);
-                    }))
-                    .child(div().w(px(20.0)).text_color(if selected {foreground} else {palette.muted_foreground})
-                        .child(crate::components::folder_icon::view_for_folder(PathBuf::new(), &bookmark.path, 18., cx)))
-                    .child(div().text_ellipsis().child(bookmark.name)))
-                .child(div().id(format!("remove-{}", bookmark.path.display())).w(px(36.)).h_full()
-                    .flex_shrink_0().flex().items_center().justify_center()
-                    .opacity(0.)
-                    .group_hover(hover_group, |style| style.opacity(1.))
-                    .text_color(if selected {foreground} else {palette.muted_foreground}).cursor_pointer()
-                    .hover(|style| style.text_color(palette.danger_foreground))
-                    .child(Icon::new(IconName::X).size(px(16.0)))
-                    .on_click(cx.listener(move |_, _, _, cx| {
-                        if let Err(error) = bookmarks::remove_bookmark(&remove_target) {
-                            eprintln!("Could not remove bookmark: {error}");
-                        }
-                        cx.notify();
-                    })))
-                .context_menu(sidebar_menu(bookmark.path.clone(), true, cx.entity().downgrade()))
-        }))
+        .child(div().px(px(14.0)).h(px(38.)).flex().items_center().justify_between()
+            .text_size(px(13.)).text_color(palette.link).child("Places")
+            .child(div().text_size(px(10.)).text_color(palette.muted_foreground).child("Drag to reorder")))
+        .children(places)
 }
 
-fn mount_rows(locations: Vec<(String, PathBuf)>, current_dir: &Path, cx: &mut Context<MainWindow>) -> impl IntoElement {
-    let mut rows = div().flex().flex_col().gap(px(4.));
-    for (label, path) in locations { rows = rows.child(location_row_owned(label, path, current_dir, cx)); }
-    rows
+fn bookmark_row(bookmark: bookmarks::Bookmark, current_dir: &Path, cx: &mut Context<MainWindow>) -> impl IntoElement {
+    let target = bookmark.path.clone();
+    let drop_destination = bookmark.path.clone();
+    let remove_target = bookmark.path.clone();
+    let hover_group = format!("bookmark-row-{}", bookmark.path.display());
+    let selected = current_dir == &bookmark.path;
+    let palette = cx.theme().clone();
+    let foreground = palette.foreground;
+    div().h(px(42.)).flex_shrink_0().w_full().flex().items_center().rounded(cx.theme().radius)
+        .group(hover_group.clone()).text_color(foreground)
+        .when(selected, |row| row.bg(palette.primary.opacity(0.22)))
+        .hover(|style| style.bg(if selected {palette.primary.opacity(0.28)} else {palette.primary.opacity(0.14)}))
+        .child(div().id(format!("bookmark-{}", bookmark.path.display())).flex_1().h_full()
+            .flex().items_center().gap(px(12.)).px(px(14.)).cursor_pointer()
+            .hover(|style| style.text_color(if selected {foreground} else {palette.primary}))
+            .on_click(cx.listener(move |this, _, window, cx| this.navigate_to(target.clone(), window, cx)))
+            .on_drop(cx.listener(move |state, paths: &ExternalPaths, window, cx| {
+                crate::context_menu::actions::copy_paths_to(paths.paths().to_vec(), drop_destination.clone(), state, window, cx);
+            }))
+            .child(div().w(px(20.)).text_color(if selected {foreground} else {palette.muted_foreground})
+                .child(crate::components::folder_icon::view_for_folder(PathBuf::new(), &bookmark.path, 18., cx)))
+            .child(div().text_ellipsis().child(bookmark.name)))
+        .child(div().id(format!("remove-{}", bookmark.path.display())).w(px(36.)).h_full()
+            .flex_shrink_0().flex().items_center().justify_center().opacity(0.)
+            .group_hover(hover_group, |style| style.opacity(1.))
+            .text_color(if selected {foreground} else {palette.muted_foreground}).cursor_pointer()
+            .hover(|style| style.text_color(palette.danger_foreground))
+            .child(Icon::new(IconName::X).size(px(16.)))
+            .on_click(cx.listener(move |_, _, _, cx| {
+                if let Err(error) = bookmarks::remove_bookmark(&remove_target) { eprintln!("Could not remove bookmark: {error}"); }
+                cx.notify();
+            })))
+        .context_menu(sidebar_menu(bookmark.path, true, cx.entity().downgrade()))
 }
 
 fn location_row_owned(label: String, path: PathBuf, current_dir: &Path, cx: &mut Context<MainWindow>) -> impl IntoElement {
@@ -169,7 +171,7 @@ fn location_row(label: &'static str, icon: IconName, path: PathBuf,
         .context_menu(sidebar_menu(menu_path, false, cx.entity().downgrade()))
 }
 
-fn sidebar_menu(path: PathBuf, bookmark: bool, owner: WeakEntity<MainWindow>) -> impl Fn(gpui_kit::component::menu::PopupMenu, &mut gpui_kit::Window, &mut Context<gpui_kit::component::menu::PopupMenu>) -> gpui_kit::component::menu::PopupMenu + 'static {
+pub(super) fn sidebar_menu(path: PathBuf, bookmark: bool, owner: WeakEntity<MainWindow>) -> impl Fn(gpui_kit::component::menu::PopupMenu, &mut gpui_kit::Window, &mut Context<gpui_kit::component::menu::PopupMenu>) -> gpui_kit::component::menu::PopupMenu + 'static {
     move |menu, _, _| {
         let tab_owner = owner.clone();
         let tab_path = path.clone();
@@ -196,16 +198,6 @@ fn sidebar_menu(path: PathBuf, bookmark: bool, owner: WeakEntity<MainWindow>) ->
                     let _ = rename_owner.update(cx, |state, cx| crate::context_menu::dialog::show(state,
                         crate::context_menu::dialog::Kind::RenameBookmark(rename_path.clone()), "Rename bookmark", "Choose a name for this sidebar bookmark.", Some(rename_name.clone()), window, cx));
                 }));
-            for (label, offset) in [("Move bookmark up", -1), ("Move bookmark down", 1)] {
-                let move_owner = owner.clone();
-                let move_path = path.clone();
-                menu = menu.item(PopupMenuItem::element(move |_, _| div().h(px(36.)).pr(px(8.)).flex().items_center().child(label))
-                    .icon(Icon::new(IconName::Bookmark).mx(px(4.)).my(px(12.)))
-                    .on_click(move |_, _, cx| {
-                        if let Err(error) = bookmarks::move_bookmark(&move_path, offset) { eprintln!("Could not reorder bookmark: {error}"); }
-                        let _ = move_owner.update(cx, |_, cx| cx.notify());
-                    }));
-            }
             let remove_owner = owner.clone();
             let remove_path = path.clone();
             menu = menu.item(PopupMenuItem::element(|_, _| div().h(px(36.)).pr(px(8.)).flex().items_center().child("Remove bookmark"))

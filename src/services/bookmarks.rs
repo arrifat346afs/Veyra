@@ -67,13 +67,25 @@ pub fn rename_bookmark(path: &Path, name: String) -> io::Result<()> {
     save(&bookmarks)
 }
 
-pub fn move_bookmark(path: &Path, offset: isize) -> io::Result<()> {
-    let mut bookmarks = get_bookmarks();
-    let Some(index) = bookmarks.iter().position(|bookmark| bookmark.path == path) else { return Ok(()) };
-    let destination = (index as isize + offset).clamp(0, bookmarks.len().saturating_sub(1) as isize) as usize;
-    let bookmark = bookmarks.remove(index);
-    bookmarks.insert(destination, bookmark);
-    save(&bookmarks)
+/// Return the saved unified order for built-in places, mounted volumes and bookmarks.
+pub fn get_sidebar_order() -> Vec<String> {
+    let Some(file) = storage_path().map(|path| path.with_file_name("sidebar-order.json")) else { return Vec::new() };
+    fs::read_to_string(file).ok().and_then(|text| serde_json::from_str(&text).ok()).unwrap_or_default()
+}
+
+/// Move an item before another item, or to the end when `before` is `None`.
+pub fn reorder_sidebar(order: &[String], from: &str, before: Option<&str>) -> io::Result<()> {
+    let Some(source) = order.iter().position(|key| key == from) else { return Ok(()) };
+    if before == Some(from) { return Ok(()) }
+    let mut order = order.to_vec();
+    let item = order.remove(source);
+    let destination = before.and_then(|key| order.iter().position(|item| item == key)).unwrap_or(order.len());
+    order.insert(destination, item);
+    let Some(file) = storage_path().map(|path| path.with_file_name("sidebar-order.json")) else {
+        return Err(io::Error::new(io::ErrorKind::NotFound, "home data directory is unavailable"));
+    };
+    if let Some(parent) = file.parent() { fs::create_dir_all(parent)?; }
+    fs::write(file, serde_json::to_vec(&order).map_err(io::Error::other)?)
 }
 
 /// Persist a complete bookmark list, creating the app data directory as needed.

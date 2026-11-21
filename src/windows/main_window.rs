@@ -49,7 +49,7 @@ pub struct MainWindow {
     pub(crate) properties_metadata_loading: bool,
     pub(crate) properties_metadata_error: Option<String>,
     pub(crate) properties_folder_size: Option<u64>,
-    pub(crate) properties_filesystem: Option<(String, String)>,
+    pub(crate) properties_filesystem: Option<(String, u64, u64)>,
     pub(crate) properties_error: Option<String>,
     pub(crate) file_operation_busy: bool,
     pub(crate) file_operation_progress: Option<FileOperationProgress>,
