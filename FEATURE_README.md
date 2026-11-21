@@ -93,7 +93,7 @@ Search operators can be combined, for example `invoice type:pdf modified:30d`. C
 |---|---|---|
 | File properties | ✅ | Dedicated Properties dialog shows common file details plus embedded title, description, keywords, camera, image, document and media metadata when available through ExifTool. |
 | File location | ✅ | Full path is displayed. |
-| Creation/modification information | ❌ | Timestamps are not displayed. |
+| Creation/modification information | 🟡 | Modified and created timestamps are displayed in Properties; creation time shows “Unavailable” when the filesystem does not provide it. |
 | Folder size | 🟡 | Folder metadata length is shown, not a recursive total of its contents. |
 | Owner and group | ❌ | Not displayed. |
 | File permissions | 🟡 | Only a read-only yes/no value; no permission editor or detailed mode bits. |

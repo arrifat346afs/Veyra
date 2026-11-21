@@ -105,7 +105,7 @@ impl MainWindow {
             let view = cx.new(|cx| {
                 let focus = cx.focus_handle();
                 focus.focus(window, cx);
-                let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search (type:pdf modified:7d content:word)"));
+                let search = cx.new(|cx| InputState::new(window, cx).placeholder(""));
                 cx.subscribe(&search, |_: &mut MainWindow, _, _: &InputEvent, cx| cx.notify()).detach();
                 cx.subscribe_in(&search, window, |state, _, event: &InputEvent, _, cx| {
                     if !matches!(event, InputEvent::Change) { return; }
@@ -358,7 +358,7 @@ pub(crate) fn read_directory(path: &PathBuf) -> (Vec<PathBuf>, Option<String>) {
 }
 
 impl Render for MainWindow {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.theme().clone();
         let query = self.search.read(cx).value().to_string();
         let name_query = crate::search::filename_query(&query);
@@ -383,8 +383,8 @@ impl Render for MainWindow {
             let order=if self.reverse_sort {order.reverse()} else {order};
             if self.preferences.folders_first {b.is_dir().cmp(&a.is_dir()).then(order)} else {order}
         });
-        let window_width = f32::from(_window.viewport_size().width);
-        let toolbar = topbar::topbar(self, cx);
+        let window_width = f32::from(window.viewport_size().width);
+        let toolbar = topbar::topbar(self, window, cx);
         let path_bar = crate::components::path_bar::view(self, cx);
         let selection_visible: Vec<_> = if self.list_view && !self.column_view {
             crate::layouts::content::list_tree::flatten_entries(&visible, &self.expanded_folders, self.show_hidden, &query, &self.preferences)

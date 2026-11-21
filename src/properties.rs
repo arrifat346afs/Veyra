@@ -78,8 +78,8 @@ pub fn view(path: &Path, state: &MainWindow, cx: &mut Context<MainWindow>) -> An
         .when(is_directory, |rows| rows.child(info_row("Contains", format!("{} items", fs::read_dir(path).map(|items| items.count()).unwrap_or(0)), cx)))
         .when_some(metadata.as_ref(), |rows, meta| rows
             .children(meta.accessed().ok().map(|time| info_row("Accessed", format_time(time), cx)))
-            .children(meta.modified().ok().map(|time| info_row("Modified", format_time(time), cx)))
-            .children(meta.created().ok().map(|time| info_row("Created", format_time(time), cx)))
+            .child(info_row("Modified", meta.modified().map(format_time).unwrap_or_else(|_| "Unavailable".into()), cx))
+            .child(info_row("Created", meta.created().map(format_time).unwrap_or_else(|_| "Unavailable".into()), cx))
             .child(info_row("Permissions", if meta.permissions().readonly() {"Read only"} else {"Read and Write"}.into(), cx)));
     if image_dimensions.is_some() || state.properties_metadata.as_ref().is_some_and(|sections| !sections.is_empty()) || state.properties_metadata_error.is_some() {
         details = details.child(div().w_full().p(px(6.)).rounded(cx.theme().radius).bg(palette.muted.opacity(0.35))
