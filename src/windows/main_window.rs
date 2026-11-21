@@ -106,7 +106,7 @@ impl MainWindow {
                 let focus = cx.focus_handle();
                 focus.focus(window, cx);
                 let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search (type:pdf modified:7d content:word)"));
-                cx.subscribe(&search, |_, _, _: &InputEvent, cx| cx.notify()).detach();
+                cx.subscribe(&search, |_: &mut MainWindow, _, _: &InputEvent, cx| cx.notify()).detach();
                 cx.subscribe_in(&search, window, |state, _, event: &InputEvent, _, cx| {
                     if !matches!(event, InputEvent::Change) { return; }
                     let query = state.search.read(cx).value().to_string();
