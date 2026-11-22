@@ -6,7 +6,7 @@ use crate::{
 use gpui_kit::prelude::FluentBuilder;
 use gpui_kit::{
     component::{
-        ActiveTheme as _, Disableable, Icon,
+        ActiveTheme as _, Disableable, Icon, switch::Switch,
         button::*,
         input::{Input, InputEvent, InputState},
         scroll::ScrollableElement,
@@ -24,6 +24,7 @@ pub struct Chooser {
     loading: bool,
     launching: bool,
     default_path: Option<PathBuf>,
+    make_default: bool,
     error: Option<String>,
 }
 impl Chooser {
@@ -76,6 +77,7 @@ fn open_mode(
         loading: true,
         launching: false,
         default_path,
+        make_default: false,
         error: None,
     });
     cx.defer_in(window, |state, window, cx| {
@@ -137,6 +139,7 @@ fn launch(state: &mut MainWindow, window: &mut Window, cx: &mut Context<MainWind
     chooser.error = None;
     let paths = chooser.paths.clone();
     let default_path = chooser.default_path.clone();
+    let make_default = chooser.make_default;
     let setting_default = default_path.is_some();
     let recent_paths = paths.clone();
     let search = chooser.search.clone();
@@ -144,8 +147,14 @@ fn launch(state: &mut MainWindow, window: &mut Window, cx: &mut Context<MainWind
     cx.spawn_in(window, async move |state, cx| {
         let result = executor
             .spawn(async move {
-                if let Some(path) = default_path { applications::set_default_for(&path, &id) }
-                else { applications::launch(&id, &paths) }
+                if let Some(path) = default_path {
+                    applications::set_default_for(&path, &id)
+                } else {
+                    if make_default {
+                        applications::set_default_for(&paths[0], &id)?;
+                    }
+                    applications::launch(&id, &paths)
+                }
             })
             .await;
         let _ = state.update_in(cx, |state, window, cx| {
@@ -359,6 +368,23 @@ pub fn view(state: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
                         .overflow_y_scrollbar()
                         .child(list),
                 )
+                .when(chooser.default_path.is_none() && chooser.paths.len() == 1, |dialog| {
+                    let checked = chooser.make_default;
+                    dialog.child(div().flex().items_center().justify_between().gap(px(12.))
+                        .child(div().flex().flex_col().gap(px(3.))
+                            .child("Always use for this file type")
+                            .child(div().text_size(px(12.)).text_color(palette.muted_foreground)
+                                .child("Save this app as the system default for this type.")))
+                        .child(Switch::new("always-use-for-file-type").checked(checked)
+                            .accessibility_label("Always use for this file type")
+                            .color(palette.primary.opacity(0.30))
+                            .on_change(cx.listener(|state, value: &bool, _, cx| {
+                                if let Some(chooser) = &mut state.application_chooser {
+                                    chooser.make_default = *value;
+                                    cx.notify();
+                                }
+                            }))))
+                })
                 .children(chooser.error.as_ref().map(|error| {
                     div()
                         .text_size(px(12.))

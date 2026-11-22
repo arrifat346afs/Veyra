@@ -84,7 +84,7 @@ fn attach_to(
                     .item(item("Restore", IconName::RefreshCw, Command::Restore, owner.clone()))
                     .item(item("Delete permanently…", IconName::Trash, Command::Trash, owner.clone()));
             } else {
-                menu = selection_menu(menu, &paths, owner.clone(), window, cx);
+                menu = selection_menu(menu, &paths, state.current_dir.clone(), owner.clone(), window, cx);
             }
             return menu.separator().item(item("Properties", IconName::Info, Command::Properties, owner.clone()));
         }
@@ -94,7 +94,8 @@ fn attach_to(
                 .item(item("Reload", IconName::RefreshCw, Command::Reload, owner.clone()));
         }
         let document_owner = owner.clone();
-        menu.item(item("New folder", IconName::FolderPlus, Command::NewFolder, owner.clone()))
+        let directory = state.current_dir.clone();
+        let menu = menu.item(item("New folder", IconName::FolderPlus, Command::NewFolder, owner.clone()))
         .submenu_with_icon(
             Some(icon(IconName::FilePlus)),
             "New document",
@@ -151,7 +152,8 @@ fn attach_to(
             owner.clone(),
         ))
         .separator()
-        .item(item("Properties", IconName::Info, Command::Properties, owner.clone()))
+        .item(item("Properties", IconName::Info, Command::Properties, owner.clone()));
+        super::scripts::append(menu, directory, Vec::new(), owner.clone(), window, cx)
     })
     .into_any_element()
 }
@@ -159,6 +161,7 @@ fn attach_to(
 fn selection_menu(
     mut menu: gpui_kit::component::menu::PopupMenu,
     paths: &[std::path::PathBuf],
+    directory: std::path::PathBuf,
     owner: WeakEntity<MainWindow>,
     window: &mut Window,
     cx: &mut Context<gpui_kit::component::menu::PopupMenu>,
@@ -205,7 +208,8 @@ fn selection_menu(
     } else {
         menu = menu.item(item("Batch rename…", IconName::Pencil, Command::BatchRename, owner.clone()));
     }
-    menu.separator()
+    menu = menu.separator()
         .item(item("Move to trash", IconName::Trash, Command::Trash, owner.clone()))
-        .item(item("Delete permanently…", IconName::Trash, Command::Delete, owner.clone()))
+        .item(item("Delete permanently…", IconName::Trash, Command::Delete, owner.clone()));
+    super::scripts::append(menu, directory, paths.to_vec(), owner, window, cx)
 }

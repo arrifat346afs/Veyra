@@ -98,7 +98,7 @@ Search operators can be combined, for example `invoice type:pdf modified:30d`. C
 | Owner and group | ✅ | User and group names are shown, with numeric IDs when names cannot be resolved. |
 | File permissions | ✅ | Unix mode bits are displayed and owner, group and other read/write/execute bits can be toggled. |
 | Executable permission | ✅ | Executability is displayed and controlled through the execute permission toggles. |
-| Default application selection | ✅ | Set Default Application opens the installed-app chooser and updates the system MIME association. |
+| Default application selection | ✅ | Set Default Application or the Open with “Always use for this file type” switch updates the system MIME association. |
 | Filesystem information | ✅ | Filesystem type appears in Properties; the File system sidebar entry shows a used-space percentage and progress bar. |
 
 ## 7. Archives
@@ -173,12 +173,12 @@ Search operators can be combined, for example `invoice type:pdf modified:30d`. C
 
 | Feature | Status | Notes |
 |---|---|---|
-| Nautilus scripts | ❌ | No Nautilus script integration. |
+| Nautilus scripts | 🟡 | Executable scripts in `~/.local/share/nautilus/scripts` appear in a Scripts submenu; nested script folders are not yet grouped into nested menus. |
 | Extension API | ❌ | No Veyra extension API. |
-| Custom context-menu actions | ❌ | Context menu actions are built into the application; no user/plugin action registration. |
+| Custom context-menu actions | ✅ | Executable user scripts in `~/.local/share/nautilus/scripts` appear in a Scripts submenu and receive selected paths as arguments plus Nautilus-compatible environment variables. |
 | Open in Terminal integration | ✅ | Context menu launches the available terminal command in the selected folder. |
 | Third-party Git integrations | ❌ | No Git status/actions integration. |
-| Application integrations | 🟡 | Opens files with system applications and includes an XDG Desktop Portal file chooser backend; no general application extension system. |
+| Application integrations | 🟡 | Opens files with system applications; Open with can optionally save the chosen app as the default handler for a single file's type. Includes an XDG Desktop Portal file chooser backend; no general application extension system. |
 
 ## How this was assessed
 

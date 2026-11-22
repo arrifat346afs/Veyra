@@ -1,4 +1,4 @@
-//! Use GIO's desktop application registry and launcher, without changing defaults.
+//! Use GIO's desktop application registry, launcher, and explicit default associations.
 use gio::prelude::*;
 use std::{
     collections::HashSet,
