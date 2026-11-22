@@ -99,7 +99,7 @@ fn bookmark_row(bookmark: bookmarks::Bookmark, current_dir: &Path, cx: &mut Cont
             .on_drop(cx.listener(move |state, paths: &ExternalPaths, window, cx| {
                 crate::context_menu::actions::copy_paths_to(paths.paths().to_vec(), drop_destination.clone(), state, window, cx);
             }))
-            .child(div().w(px(20.)).text_color(if selected {foreground} else {palette.muted_foreground})
+            .child(div().w(px(20.)).text_color(if selected {foreground} else {palette.primary})
                 .child(crate::components::folder_icon::view_for_folder(PathBuf::new(), &bookmark.path, 18., cx)))
             .child(div().text_ellipsis().child(bookmark.name)))
         .child(div().id(format!("remove-{}", bookmark.path.display())).w(px(36.)).h_full()
@@ -127,7 +127,7 @@ fn location_row_owned(label: String, path: PathBuf, current_dir: &Path, cx: &mut
         .hover(|style| style.bg(if selected {palette.primary.opacity(0.28)} else {palette.primary.opacity(0.14)}))
         .on_click(cx.listener(move |this, _, window, cx| this.navigate_to(path.clone(), window, cx)))
         .on_drop(cx.listener(move |state, paths: &ExternalPaths, window, cx| crate::context_menu::actions::copy_paths_to(paths.paths().to_vec(), external_drop_destination.clone(), state, window, cx)))
-        .child(div().w(px(20.0)).text_color(palette.muted_foreground).child(Icon::new(IconName::HardDrive).size(px(18.0))))
+        .child(div().w(px(20.0)).text_color(palette.primary).child(Icon::new(IconName::HardDrive).size(px(18.0))))
         .child(div().text_ellipsis().child(label))
         .context_menu(sidebar_menu(menu_path, false, cx.entity().downgrade()))
 }
@@ -165,7 +165,7 @@ fn location_row(label: &'static str, icon: IconName, path: PathBuf,
                 crate::context_menu::actions::move_paths_to(drag.paths.clone(), internal_drop_destination.clone(), state, window, cx);
             }
         }))
-        .child(div().w(px(20.0)).text_color(if selected {foreground} else {palette.muted_foreground})
+        .child(div().w(px(20.0)).text_color(if selected {foreground} else {palette.primary})
             .child(Icon::new(icon).size(px(18.0))))
         .child(div().text_ellipsis().child(label))
         .context_menu(sidebar_menu(menu_path, false, cx.entity().downgrade()))

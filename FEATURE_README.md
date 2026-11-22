@@ -45,7 +45,7 @@ This checklist compares the requested GNOME Nautilus feature set with the code c
 | Feature | Status | Notes |
 |---|---|---|
 | Home and standard folders | ✅ | Home, Desktop, Documents, Downloads, Pictures, Music, Videos, and filesystem root. |
-| Custom bookmarks | ✅ | Persistent app-owned bookmarks with folder icons; first run can import GTK bookmarks. |
+| Custom bookmarks | ✅ | Persistent app-owned bookmarks with theme-accent folder icons; first run can import GTK bookmarks. |
 | Add bookmarks | ✅ | Context menu or drag a folder to the sidebar. |
 | Remove bookmarks | ✅ | Remove control appears when hovering over a bookmark row. |
 | Open sidebar locations in a new tab or window | ✅ | Right-click a place or bookmark to open it in a new tab or window. |
@@ -146,12 +146,12 @@ Search operators can be combined, for example `invoice type:pdf modified:30d`. C
 | Video thumbnails | ✅ | Generates a video frame directly with FFmpeg; installed desktop thumbnailers remain a fallback. |
 | Document thumbnails | ✅ | Generates the first PDF page with Poppler and Office document pages with LibreOffice; installed desktop thumbnailers handle additional formats. |
 | Thumbnail caching | ✅ | Veyra cache under the XDG cache directory. |
-| Quick preview with GNOME Sushi | ❌ | Veyra has its own Space-bar preview; it does not integrate GNOME Sushi. |
+| Quick preview with GNOME Sushi | ✅ | Space invokes GNOME Sushi through its D-Bus preview interface when available; Veyra's built-in preview is the fallback. |
 | Image preview | ✅ | Veyra Quick Preview, with zoom. |
-| PDF preview | 🟡 | Requires supported installed renderers such as Poppler. |
+| PDF preview | ✅ | Multi-page preview uses Poppler when installed. |
 | Text preview | ✅ | Read-only, bounded text preview. |
-| Audio preview | ❌ | No audio playback/preview. |
-| Video preview | 🟡 | Attempts a frame preview through available tools; depends on installed support. |
+| Audio preview | ✅ | Space-bar preview identifies audio files and offers playback in the system's associated media application. |
+| Video preview | ✅ | Shows a frame preview when FFmpeg is installed and offers playback in the associated media application. |
 
 ## 11. Customization
 

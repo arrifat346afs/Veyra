@@ -28,7 +28,7 @@ pub fn row(current_dir: &std::path::Path, cx: &mut Context<MainWindow>) -> impl 
         .when(selected, |row| row.bg(palette.primary.opacity(0.22)))
         .hover(|style| style.bg(if selected {palette.primary.opacity(0.28)} else {palette.primary.opacity(0.14)}))
         .on_click(cx.listener(move |state, _, window, cx| state.navigate_to(path.clone(), window, cx)))
-        .child(div().w(px(20.)).text_color(palette.muted_foreground).child(Icon::new(IconName::HardDrive).size(px(18.))))
+        .child(div().w(px(20.)).text_color(palette.primary).child(Icon::new(IconName::HardDrive).size(px(18.))))
         .child(div().flex_1().flex().flex_col().justify_center().gap(px(3.))
             .child(div().w_full().flex().items_center().justify_between().child("File system")
                 .child(div().text_size(px(10.)).text_color(palette.muted_foreground).child(detail)))

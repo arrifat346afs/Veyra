@@ -23,6 +23,9 @@ pub fn toggle(state: &mut MainWindow, _window: &mut Window, cx: &mut Context<Mai
     if !path.is_file() {
         return;
     }
+    if quick_preview::show_with_sushi(&path) {
+        return;
+    }
     if let Some(handle) = state.quick_preview.window.take() {
         let closed = handle
             .update(cx, |_, window, _| window.remove_window())
@@ -117,6 +120,7 @@ impl QuickPreview {
                     Ok(content) => {
                         view.page_image = match &content {
                             Content::Image { path, .. } => Some(path.clone()),
+                            Content::Video { path, .. } => Some(path.clone()),
                             Content::Document { image, .. } => Some(image.clone()),
                             _ => None,
                         };
@@ -191,11 +195,20 @@ impl Render for QuickPreview {
         };
         let description = match &self.content {
             Some(Content::Image { description, .. })
+            | Some(Content::Video { description, .. })
+            | Some(Content::Audio { description })
             | Some(Content::Document { description, .. })
             | Some(Content::Text { description, .. }) => description.as_str(),
             _ => "",
         };
-        let body = if let Some(image) = &self.page_image {
+        let body = if let Some(Content::Audio { description }) = &self.content {
+            let play_path = self.path.clone();
+            div().flex_1().flex().flex_col().items_center().justify_center().gap(px(16.))
+                .child(div().text_size(px(15.)).text_color(palette.muted_foreground).child(description.clone()))
+                .child(preview_button("preview-play-audio", cx).label("Play audio")
+                    .on_click(move |_, _, cx| cx.open_with_system(&play_path)))
+                .into_any_element()
+        } else if let Some(image) = &self.page_image {
             let width = (f32::from(window.viewport_size().width) - 40.).max(200.);
             let height = (f32::from(window.viewport_size().height) - 124.).max(140.);
             let image_width = width * self.zoom;
@@ -322,6 +335,11 @@ impl Render for QuickPreview {
                             .label("Open file")
                             .on_click(move |_, _, cx| cx.open_with_system(&path)),
                     )
+                    .when(matches!(self.content.as_ref(), Some(Content::Video { .. })), |header| {
+                        let play_path = self.path.clone();
+                        header.child(preview_button("preview-play-video", cx).label("Play video")
+                            .on_click(move |_, _, cx| cx.open_with_system(&play_path)))
+                    })
                     .child(
                         preview_button("close-preview", cx)
                             .label("Close")

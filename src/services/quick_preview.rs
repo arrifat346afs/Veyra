@@ -16,6 +16,14 @@ pub enum Content {
         _files: Arc<tempfile::TempDir>,
         description: String,
     },
+    Video {
+        path: PathBuf,
+        _files: Arc<tempfile::TempDir>,
+        description: String,
+    },
+    Audio {
+        description: String,
+    },
     Document {
         document: Document,
         image: PathBuf,
@@ -28,6 +36,25 @@ pub enum Content {
     Info {
         description: String,
     },
+}
+
+/// Ask GNOME Sushi to show the file; the caller can fall back to Veyra's viewer.
+pub fn show_with_sushi(path: &Path) -> bool {
+    let Ok(connection) = zbus::blocking::Connection::session() else {
+        return false;
+    };
+    let Ok(proxy) = zbus::blocking::Proxy::new(
+        &connection,
+        "org.gnome.NautilusPreviewer",
+        "/org/gnome/NautilusPreviewer",
+        "org.gnome.NautilusPreviewer2",
+    ) else {
+        return false;
+    };
+    let Ok(uri) = url::Url::from_file_path(path) else {
+        return false;
+    };
+    proxy.call::<_, _, ()>("ShowFile", &(uri.as_str(), "veyra", true)).is_ok()
 }
 
 pub fn prepare(path: &Path) -> Result<Content, String> {
@@ -102,9 +129,16 @@ pub fn prepare(path: &Path) -> Result<Content, String> {
             description: format!("{} × {} pixels", dimensions.0, dimensions.1),
         });
     }
+    if mime.type_() == mime_guess::mime::AUDIO {
+        return Ok(Content::Audio {
+            description: format!("{} audio · {} bytes", mime.essence_str(), metadata.len()),
+        });
+    }
     if mime.type_() == mime_guess::mime::VIDEO {
         if let Some(content) = renderers::video_frame(path)? {
-            return Ok(content);
+            if let Content::Image { path, _files, description } = content {
+                return Ok(Content::Video { path, _files, description });
+            }
         }
     }
     // Read at most 300 KB and reject binary content. Text without an extension
