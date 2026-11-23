@@ -183,3 +183,50 @@ Search operators can be combined, for example `invoice type:pdf modified:30d`. C
 ## How this was assessed
 
 The checklist was assessed from the repository implementation and its existing README. A feature marked partial may depend on desktop utilities or providers installed on the host. “Not implemented” means no corresponding Veyra functionality was found in this codebase.
+
+## Requested capability checklist
+
+This section tracks the requested capability list. Status reflects Veyra itself; a desktop service or external application may provide related behavior without making it an implemented Veyra feature.
+
+**Legend:** ✅ Implemented · 🟡 Partial or limited · ❌ Not implemented
+
+### High priority
+
+| Feature | Status | Notes |
+|---|---|---|
+| Connect to Server dialog for SMB, SFTP, and WebDAV | ❌ | No server connection dialog. Existing GIO network mounts may appear in the sidebar. |
+| USB mount, unmount, and eject controls | ❌ | Mounted removable volumes may be listed; Veyra has no mount, unmount, or eject controls. |
+| Drive and partition discovery | ❌ | Veyra does not discover or list devices and partitions. |
+| Storage capacity and free-space display per device | 🟡 | The filesystem sidebar entry shows used-space percentage; it does not list capacity/free space per device. |
+| Android MTP device browsing | ❌ | Not implemented. |
+| Remote file copy, move, and deletion | ❌ | File operations use local filesystem paths; remote filesystem operations are not implemented. |
+
+### Medium priority
+
+| Feature | Status | Notes |
+|---|---|---|
+| Embedded terminal panel | ❌ | A context-menu action can open an external terminal in a folder. |
+| Dual-pane / split file browsing | ❌ | Tabs and a column view exist; there are no two independently browsable panes. |
+| Git branch and modification status indicators | ❌ | Not implemented. |
+| Persistent full-text search index | 🟡 | Content search scans supported text files on demand; no persistent index is built. |
+| Quick file-type and size filtering controls | 🟡 | Search supports file-type filters; no size filter controls were found. |
+| Folder comparison and synchronization | ❌ | Not implemented. |
+| Plugin and extension system | ❌ | No Veyra extension API or plugin loader. |
+| Keyboard shortcut customization | ❌ | Shortcuts are built in; no customization interface was found. |
+| Audio/video playback inside Quick Preview | 🟡 | Audio is identified and video can show a still frame; playback opens the system's associated media application. |
+| Localization / translation support | ❌ | No translation framework or translated strings were found. |
+
+### Optional
+
+| Feature | Status | Notes |
+|---|---|---|
+| Cloud account integration | ❌ | Not implemented. |
+| File tagging and color labels | ❌ | Starred items are supported, but tags and color labels are not. |
+| Duplicate file finder | ❌ | Same-folder copy can create a duplicate; there is no duplicate detection/finder. |
+| Checksum calculation and verification | ❌ | Not implemented in the app. |
+| Visual disk usage analyzer | 🟡 | The filesystem sidebar shows used-space percentage, but there is no visual analyzer of folder or disk contents. |
+| Saved searches | ❌ | Not implemented. |
+| Per-folder custom view configuration | ❌ | View preferences are not stored per folder. |
+| Session restoration for all tabs and windows | ❌ | The last location is restored, but the full tab/window session is not. |
+| Automatic system theme detection | 🟡 | Light/dark choices and custom themes exist; automatic system-theme following is not implemented. |
+| Nested Nautilus script submenus | 🟡 | Scripts are listed in a submenu; nested script directories are not shown as nested menus. |

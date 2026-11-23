@@ -10,8 +10,8 @@ Built with [GPUI](https://www.gpui.rs/) and [gpui-kit](https://crates.io/crates/
 
 </div>
 
-Veyra is a keyboard-friendly file manager with tabs, flexible views,
-image and document previews, and an optional desktop file-picker integration.
+Veyra is a Linux desktop application. Its feature inventory and implementation
+status are maintained in [FEATURE_README.md](FEATURE_README.md).
 
 <p align="center">
   <img src="screenshot_20261119_133559-annotated.png" alt="Veyra file manager showing the home folder" width="100%">
@@ -19,37 +19,11 @@ image and document previews, and an optional desktop file-picker integration.
 
 ## Contents
 
-- [Features](#features)
+- [Feature inventory](FEATURE_README.md)
 - [Requirements](#requirements)
 - [Build and run](#build-and-run)
-- [Keyboard shortcuts](#keyboard-shortcuts)
 - [Data locations](#data-locations)
-- [Use Veyra as the system file picker](#use-veyra-as-the-system-file-picker)
-- [Quick Preview](#quick-preview)
 - [Status](#status)
-
-## Features
-
-- Grid and list views with adjustable icon size, label size, and spacing
-- Thumbnails for images, GIFs, SVGs, videos, PDFs, and Office documents;
-  registered freedesktop thumbnailers cover further formats
-- File and folder creation, rename, copy, cut/move, paste, trash, and permanent delete
-- Open files in their default application for reading and editing
-- Open with a searchable popup of installed applications, with compatible apps first
-- Veyra-owned Space-bar Quick Preview with image zoom and document page navigation;
-  DOCX text fallback when LibreOffice is unavailable
-- Sidebar with home places and persistent bookmarks
-- Bookmark folders from their context menu or by dragging them onto the sidebar
-- Breadcrumb navigation with back/forward history
-- Live filtering of the current folder, with an optional case-sensitive mode
-- Sorting by name, size, modified time, or type; folders-first option
-- Multi-select with Ctrl/Shift click and a rubber-band drag
-- Dark/light and custom JSON themes with live reload when the theme file changes
-- Folder icons follow the theme accent while preserving their shading and symbols
-- Window, sidebar, and surface opacity sliders
-- Shared corner-radius slider for controls, menus, hover highlights, and drag selections
-- Searchable settings in a separate fixed-size window, persisted across launches
-- Desktop portal file picker for open/upload, folder selection, and save dialogs
 
 ## Requirements
 
@@ -150,33 +124,6 @@ You can also run **Build Linux** manually against an existing `v*` tag to
 publish it. Rerunning a workflow run replaces the matching assets on its
 existing release.
 
-## Keyboard shortcuts
-
-| Shortcut | Action |
-| --- | --- |
-| `Ctrl+Shift+N` | Create a folder |
-| `Ctrl+Shift+V` | Cycle grid, list, and column views |
-| `Ctrl++` / `Ctrl+-` | Increase / decrease content icon size |
-| `Ctrl+0` | Reset content icon size |
-| `Ctrl+C` / `Ctrl+X` / `Ctrl+V` | Copy / cut / paste |
-| `Ctrl+Z` / `Ctrl+Y` / `Ctrl+Shift+Z` | Undo / redo |
-| `Ctrl+A` | Select all visible files |
-| `F2` | Rename the selected item |
-| `Delete` | Move selected items to trash |
-| `Shift+Delete` | Permanently delete selected items, with confirmation |
-| Arrow keys | Move selection in the file grid or list |
-| `Home` / `End` | Select the first / last visible item |
-| `Backspace` | Go to the parent folder |
-| `Alt+Left` / `Alt+Right` | Go back / forward in folder history |
-| `Enter` | Open selected items |
-| `Space` | Quick Preview of the selected file; Space/Escape closes the preview |
-| `F5` / `Ctrl+R` | Reload the current directory |
-| `Ctrl+H` | Toggle hidden files (dotfiles) |
-| `Ctrl+,` | Open settings |
-| `Escape` | Close settings |
-| `Ctrl` / `Shift` + click | Add or toggle a file in the selection |
-| Drag on empty space | Rubber-band select |
-
 ## Data locations
 
 Veyra follows the XDG base directory specification:
@@ -207,86 +154,5 @@ src/
 
 ## Status
 
-Early development. Drive mounting, removable media, network shares, and
-drag-and-drop file moves are not implemented yet.
-
-## Use Veyra as the system file picker
-
-Veyra includes an `org.freedesktop.impl.portal.FileChooser` backend. Upload/open
-requests from applications using XDG Desktop Portal open a Veyra picker, with
-its usual sidebar, bookmarks, thumbnails, search, and grid/list views. The picker
-returns selected file URIs to the requesting application. Veyra does not need to
-be running beforehand.
-
-Supports single/multiple files, folders, glob/MIME filters, application-provided
-choices, save dialogs with replacement confirmation, and SaveFiles destination
-selection. Click the file-type or choice button to cycle through its options.
-Double-click a folder to browse it; double-click a file or use Open to select it.
-Escape, Cancel, or closing the window cancels the request.
-
-Open **Settings → General → Use Veyra for open and save dialogs** and turn on
-the switch. Veyra installs its picker for your user account, keeps your previous
-picker as a fallback, and offers **Restart now** to apply the change. No terminal
-or administrator password is required. Restarting the portal closes current
-portal dialogs and may interrupt screen sharing; choose **Later** to defer it.
-
-The settings panel shows registration/startup status and offers **Refresh
-status** and **Apply change…** when a restart is pending. Search settings for
-“file picker”, “upload”, or “portal” to find it. Turn the switch off to restore
-the previous picker configuration. Changes made outside Veyra are preserved.
-If your portal list is managed by the system, the panel explains why the switch
-is unavailable.
-
-The settings installer stores a stable copy of the current Veyra executable in
-`$XDG_DATA_HOME/veyra/portal/veyra`, registers it through per-user D-Bus activation,
-and writes `veyra.portal` in `$XDG_DATA_HOME/xdg-desktop-portal/portals`. Recovery
-state is kept in `$XDG_STATE_HOME/veyra/portal-setup.json`. Other portal preferences
-are retained. A modern `xdg-desktop-portal` with per-user backend discovery is
-required.
-
-For distribution packaging, the optional `scripts/install-portal.sh` still
-supports `PREFIX`, `PORTAL_DIR`, and `DESTDIR`. The settings flow does not depend
-on these scripts or the source checkout.
-
-Applications using their own file dialogs need to opt into desktop portals.
-For GTK applications this can be requested when launching, for example:
-
-```sh
-GTK_USE_PORTAL=1 your-application
-```
-
-Support varies by application. The picker currently opens as an independent
-window: attaching it as a modal/transient child of the requesting application
-through X11/Wayland parent-window handles is not implemented.
-
-Try the picker without changing desktop settings (prints JSON on acceptance;
-prints nothing on cancellation):
-
-```sh
-cargo run -- --pick-file
-cargo run -- --pick-file --multiple
-cargo run -- --pick-file --directory
-```
-
-Portal integration follows the upstream [FileChooser backend interface](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.FileChooser.html)
-and [backend configuration](https://flatpak.github.io/xdg-desktop-portal/docs/portals.conf.html).
-
-## Quick Preview
-
-Select one file and press **Space**, or choose **Quick preview** from its context
-menu. Every preview opens in Veyra's own themed window. Space or Escape closes it;
-text fields continue to accept spaces normally. Previews never change your files
-or default applications.
-
-Images (including SVG) support zoom and Fit controls. PDF pages render with
-Poppler and have Previous/Next controls; Left/Right also change pages. Word and
-other Office documents can be converted to page previews using headless
-LibreOffice with an isolated temporary profile. All rendering happens in the
-background, and generated files are removed when the preview closes.
-
-DOCX/DOCM files fall back to a read-only text view if LibreOffice is unavailable
-or conversion fails. That view includes paragraphs and table text but omits
-formatting and embedded images. Plain text, code, and extensionless text files
-also have a native text preview. Video files can show a still frame when FFmpeg
-is installed; playback is available through Open file. Other file types show
-file details or a clear missing-renderer message in the same preview window.
+Early development. See [FEATURE_README.md](FEATURE_README.md) for the current
+feature inventory and implementation status.
